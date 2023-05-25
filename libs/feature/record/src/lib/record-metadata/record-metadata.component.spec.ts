@@ -5,9 +5,11 @@ import { SourcesService } from '@geonetwork-ui/feature/catalog'
 import { MapManagerService } from '@geonetwork-ui/feature/map'
 import { SearchService } from '@geonetwork-ui/feature/search'
 import {
+  ErrorType,
   MetadataCatalogComponent,
   MetadataContactComponent,
   MetadataInfoComponent,
+  SearchResultsErrorComponent,
   UiElementsModule,
 } from '@geonetwork-ui/ui/elements'
 import { RECORDS_FULL_FIXTURE } from '@geonetwork-ui/util/shared/fixtures'
@@ -26,6 +28,7 @@ class MdViewFacadeMock {
   apiLinks$ = new BehaviorSubject([])
   otherLinks$ = new BehaviorSubject([])
   related$ = new BehaviorSubject(null)
+  error$ = new BehaviorSubject(null)
 }
 
 const searchServiceMock = {
@@ -47,6 +50,12 @@ export class MockDataMapComponent {}
   template: '<div></div>',
 })
 export class MockDataViewComponent {}
+
+@Component({
+  selector: 'gn-ui-data-view-permalink',
+  template: '<div></div>',
+})
+export class MockDataViewPermalinkComponent {}
 
 @Component({
   selector: 'gn-ui-data-downloads',
@@ -83,10 +92,12 @@ describe('RecordMetadataComponent', () => {
         RecordMetadataComponent,
         MockDataMapComponent,
         MockDataViewComponent,
+        MockDataViewPermalinkComponent,
         MockDataDownloadsComponent,
         MockDataOtherlinksComponent,
         MockDataApisComponent,
         MockRelatedComponent,
+        SearchResultsErrorComponent,
       ],
       schemas: [NO_ERRORS_SCHEMA],
       imports: [UiElementsModule, TranslateModule.forRoot()],
@@ -270,6 +281,13 @@ describe('RecordMetadataComponent', () => {
           fixture.debugElement.query(By.directive(MockDataViewComponent))
         ).toBeFalsy()
       })
+      it('does not render the permalink component', () => {
+        expect(
+          fixture.debugElement.query(
+            By.directive(MockDataViewPermalinkComponent)
+          )
+        ).toBeFalsy()
+      })
     })
     describe('when a DATA link present', () => {
       beforeEach(() => {
@@ -289,6 +307,26 @@ describe('RecordMetadataComponent', () => {
           fixture.debugElement.queryAll(By.directive(MockDataViewComponent))
             .length
         ).toEqual(2)
+      })
+      it('does not render the permalink component', () => {
+        expect(
+          fixture.debugElement.query(
+            By.directive(MockDataViewPermalinkComponent)
+          )
+        ).toBeFalsy()
+      })
+      describe('when selectedTabIndex$ is 2 (chart tab)', () => {
+        beforeEach(() => {
+          component.selectedTabIndex$.next(2)
+          fixture.detectChanges()
+        })
+        it('renders the permalink component', () => {
+          expect(
+            fixture.debugElement.query(
+              By.directive(MockDataViewPermalinkComponent)
+            )
+          ).toBeTruthy()
+        })
       })
     })
     describe('when a GEODATA link present', () => {
@@ -434,6 +472,50 @@ describe('RecordMetadataComponent', () => {
         OrgForResource: {
           orgname: true,
         },
+      })
+    })
+  })
+
+  describe('error handling', () => {
+    describe('normal', () => {
+      it('does not show errors', () => {
+        const result = fixture.debugElement.query(
+          By.directive(SearchResultsErrorComponent)
+        )
+        expect(result).toBeFalsy()
+      })
+    })
+    describe('record not found', () => {
+      beforeEach(() => {
+        facade.error$.next({ notFound: true })
+        fixture.detectChanges()
+      })
+      it('shows error', () => {
+        const result = fixture.debugElement.query(
+          By.directive(SearchResultsErrorComponent)
+        )
+
+        expect(result).toBeTruthy()
+        expect(result.componentInstance.type).toBe(ErrorType.RECORD_NOT_FOUND)
+        expect(result.componentInstance.error).toBe(undefined)
+        expect(result.componentInstance.recordId).toBe(
+          RECORDS_FULL_FIXTURE[0].uuid
+        )
+      })
+    })
+    describe('other error', () => {
+      beforeEach(() => {
+        facade.error$.next({ otherError: 'This is an Error!' })
+        fixture.detectChanges()
+      })
+      it('shows error', () => {
+        const result = fixture.debugElement.query(
+          By.directive(SearchResultsErrorComponent)
+        )
+
+        expect(result).toBeTruthy()
+        expect(result.componentInstance.type).toBe(ErrorType.RECEIVED_ERROR)
+        expect(result.componentInstance.error).toBe('This is an Error!')
       })
     })
   })

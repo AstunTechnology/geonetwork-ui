@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core'
 import { SourcesService } from '@geonetwork-ui/feature/catalog'
 import { SearchService } from '@geonetwork-ui/feature/search'
-import { combineLatest } from 'rxjs'
+import { ErrorType } from '@geonetwork-ui/ui/elements'
+import { BehaviorSubject, combineLatest } from 'rxjs'
 import { filter, map, mergeMap, pluck } from 'rxjs/operators'
 import { MdViewFacade } from '../state/mdview.facade'
+import { DatavizConfigurationModel } from '@geonetwork-ui/util/types/data/dataviz-configuration.model'
 
 @Component({
   selector: 'gn-ui-record-metadata',
@@ -47,13 +49,17 @@ export class RecordMetadataComponent {
     mergeMap((uuid) => this.sourceService.getSourceLabel(uuid))
   )
 
+  errorTypes = ErrorType
+  selectedTabIndex$ = new BehaviorSubject(0)
+
   constructor(
     public facade: MdViewFacade,
     private searchService: SearchService,
     private sourceService: SourcesService
   ) {}
 
-  onTabIndexChange(): void {
+  onTabIndexChange(index: number): void {
+    this.selectedTabIndex$.next(index)
     setTimeout(() => {
       window.dispatchEvent(new Event('resize'))
     }, 0)
