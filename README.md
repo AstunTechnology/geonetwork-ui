@@ -1,16 +1,39 @@
-![Workflow status](https://github.com/geonetwork/geonetwork-ui/workflows/Build/badge.svg)
+![Workflow status](https://github.com/geonetwork/geonetwork-ui/workflows/Build/badge.svg) &nbsp;&nbsp; [![Coverage Status](https://coveralls.io/repos/github/geonetwork/geonetwork-ui/badge.svg?branch=main)](https://coveralls.io/github/geonetwork/geonetwork-ui?branch=main)
 
 # GeoNetwork UI
 
 GeoNetwork UI is a suite of Applications made to provide a modern facade to your GeoNetwork 4 catalog.
 
-It also provides Web Components to embed your catalogue in third party websites. It relies on the GeoNetwork 4 OpenAPI.
+It also provides Web Components to embed various parts of your data catalog in third party websites.
 
-The target audience is:
+## Documentation
 
-- GeoNetwork developers
-- Developers of SDI, portals
-- Website and CMS maintainers
+To check out docs, visit [geonetwork-ui website](https://geonetwork.github.io/geonetwork-ui/main/docs/)
+
+## Requirements
+
+- GeoNetwork version 4.2.2
+- ElasticSearch version 7.11+
+
+:warning: A bug currently in GeoNetwork 4.2.2 prevents the organizations of showing up correctly in the Datahub application.
+
+As a temporary workaround, the following change is necessary in GeoNetwork data directory:
+
+```diff
+diff --git a/web/src/main/webResources/WEB-INF/data/config/index/records.json b/web/src/main/webResources/WEB-INF/data/config/index/records.json
+index 1d7e499af7..78e682e3db 100644
+--- a/web/src/main/webResources/WEB-INF/data/config/index/records.json
++++ b/web/src/main/webResources/WEB-INF/data/config/index/records.json
+@@ -1317,7 +1317,7 @@
+           "mapping": {
+             "type": "nested",
+             "properties": {
+-              "org": {
++              "organisation": {
+                 "type": "keyword"
+               },
+               "role": {
+```
 
 ## Getting started
 
@@ -51,6 +74,20 @@ npx nx serve (app_name)
 ```
 
 And navigate to `http://localhost:4200/`.
+
+If you're using the standard dev configuration then you should head to the [support-services](support-services) folder and
+run `docker compose up -d` to have the required support services running locally (such as GeoNetwork).
+
+Otherwise, you can adjust the GeoNetwork instance used as a backend in the [proxy-config.js](proxy-config.js) file like so:
+
+```diff
+@@ -1,6 +1,6 @@
+ module.exports = {
+   '/geonetwork': {
+-    target: 'http://localhost:8080',
++    target: 'https://my.catalogue.org',
+     secure: true,
+```
 
 ### Build GeoNetwork-UI applications
 
@@ -125,6 +162,8 @@ Lastly, even if authenticated requests were cleared regarding CORS rules, it wou
 
 ### Tests
 
+#### Unit tests
+
 Run `npm test` to execute the affected unit tests via Jest.
 Affected code is compared to origin/main.
 
@@ -140,6 +179,35 @@ npm run test
 npm run test:all
 npx nx test (lib_name)
 npx nx test --test-match=/data/dev/gn/ui/libs/common/src/lib/services/bootstrap.service.spec.ts
+```
+
+#### End-to-end-tests
+
+You can test the datahub app by page :
+
+- home page
+- search page
+- organisations page
+- dataset pages
+
+##### To run the tests with the interface :
+
+Start docker from 'support-services', and then in the 'geonetwork-ui' folder :
+
+```shell script
+npx nx e2e appname --watch
+```
+
+Then select the file(s) you want to test in the interface.
+
+##### To run the tests without interface :
+
+Start docker from 'support-services', and then in the 'geonetwork-ui' folder :
+
+--> ALl tests :
+
+```shell script
+npx nx e2e appname
 ```
 
 ## Project structure
@@ -189,12 +257,19 @@ Libraries are organized in the following fashion:
    - `data-access-gn4` contains an auto-generated API client for the GeoNetwork 4 backend
    - `data-access-datafeeder` contains an auto-generated API client for the Datafeeder backend
 
-4. Libraries providing common services or shared models are in the `util` folder:
+4. Libraries providing various utilities in the `util` folder:
 
-   - `util-i18n` for translation and internationalization
+   - `util-data-fetcher` for fetching and querying datasets
+   - `util-app-config` for parsing and validating application configurations
    - `util-shared` for shared models and types, test fixtures, app-wide settings etc.
+   - `util-i18n` for translation and internationalization
 
-5. Libraries providing low-level functionalities that can be used both in front and backend are in the `api` folder:
+5. Libraries providing common services or shared models are in the `util` folder:
+
+   - `common-domain` contains many definitions used across the whole project
+   - `common-fixtures` contains test fixtures
+
+6. Libraries providing low-level functionalities that can be used both in front and backend are in the `api` folder:
    - `api-metadata-converter` for providing a pivot metadata model and conversion to interoperable formats
 
 #### `webcomponents`: Embeddable webcomponents
@@ -235,6 +310,6 @@ translations used in the different applications of the geonetwork-ui project.**
 
 ## To document
 
-- How to specify the GN url to use (currently hardcoded in the dev proxy: https://apps.titellus.net/geonetwork)
-- How to build and run web components
+How to build and run web components
+
 - Explain unit test setup & architecture with jest

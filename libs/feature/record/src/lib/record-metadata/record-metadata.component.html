@@ -19,15 +19,13 @@
           class="sm:block"
           [metadata]="facade.metadata$ | async"
           [incomplete]="facade.isIncomplete$ | async"
-          [notFound]="facade.error?.notFound"
-          [landingPages]="facade.landingPageLinks$ | async"
           (keyword)="onInfoKeywordClick($event)"
         >
         </gn-ui-metadata-info>
       </div>
       <div>
         <gn-ui-metadata-contact
-          (contact)="onContactClick($event)"
+          (organizationClick)="onOrganizationClick($event)"
           [metadata]="facade.metadata$ | async"
         >
         </gn-ui-metadata-contact>
@@ -39,6 +37,7 @@
   <div
     style="height: 612px"
     *ngIf="(displayMap$ | async) || (displayData$ | async)"
+    id="preview"
   >
     <div
       class="bg-primary-opacity-10 pt-8 overflow-visible sm:pt-5"
@@ -62,7 +61,9 @@
           >
             <mat-tab [disabled]="(displayMap$ | async) === false">
               <ng-template mat-tab-label>
-                <span class="tab-header-label" translate>record.tab.map</span>
+                <span class="tab-header-label sm:ml-32" translate
+                  >record.tab.map</span
+                >
               </ng-template>
               <div
                 class="block"
@@ -93,13 +94,9 @@
       </div>
     </div>
   </div>
-  <div
+  <gn-ui-data-view-share
     *ngIf="(selectedTabIndex$ | async) === 2"
-    class="container-lg px-5 my-1 lg:mx-auto"
-  >
-    <gn-ui-data-view-permalink></gn-ui-data-view-permalink>
-  </div>
-
+  ></gn-ui-data-view-share>
   <div
     id="access"
     class="container-lg px-4 lg:mx-auto"
@@ -134,13 +131,13 @@
   </div>
 </div>
 <div
-  class="p-4 max-w-[600px] m-auto text-[13px]"
+  class="mt-12 p-4 max-w-[600px] m-auto text-[13px]"
   *ngIf="facade.error$ | async as error"
 >
   <gn-ui-search-results-error
     *ngIf="error.notFound"
     [type]="errorTypes.RECORD_NOT_FOUND"
-    [recordId]="(facade.metadata$ | async).uuid"
+    [recordId]="(facade.metadata$ | async).uniqueIdentifier"
   ></gn-ui-search-results-error>
   <gn-ui-search-results-error
     *ngIf="error.otherError"

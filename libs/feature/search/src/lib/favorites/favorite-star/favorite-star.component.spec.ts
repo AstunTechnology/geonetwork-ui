@@ -4,11 +4,11 @@ import { BehaviorSubject, of, throwError } from 'rxjs'
 import { AuthService } from '@geonetwork-ui/feature/auth'
 import { FavoritesService } from '../favorites.service'
 import { StarToggleComponent } from '@geonetwork-ui/ui/inputs'
-import { RECORDS_SUMMARY_FIXTURE } from '@geonetwork-ui/util/shared/fixtures'
 import { By } from '@angular/platform-browser'
 import { ChangeDetectionStrategy, NO_ERRORS_SCHEMA } from '@angular/core'
 import { TranslateModule, TranslateService } from '@ngx-translate/core'
 import tippy from 'tippy.js'
+import { DATASET_RECORDS } from '@geonetwork-ui/common/fixtures'
 
 tippy = jest.fn()
 class AuthServiceMock {
@@ -31,7 +31,7 @@ describe('FavoriteStarComponent', () => {
   let fixture: ComponentFixture<FavoriteStarComponent>
   let authService: AuthService
   let favoritesService: FavoritesService
-  let favoriteCountEl: HTMLElement
+  let favoriteCountHTMLEl: HTMLElement
   let starToggle: StarToggleComponent
 
   beforeEach(async () => {
@@ -65,7 +65,6 @@ describe('FavoriteStarComponent', () => {
     favoritesService = TestBed.inject(FavoritesService)
     fixture = TestBed.createComponent(FavoriteStarComponent)
     component = fixture.componentInstance
-    component.record = { ...RECORDS_SUMMARY_FIXTURE[0], favoriteCount: 42 }
     fixture.detectChanges()
     starToggle = fixture.debugElement.query(
       By.directive(StarToggleComponent)
@@ -76,146 +75,182 @@ describe('FavoriteStarComponent', () => {
     expect(component).toBeTruthy()
   })
 
-  describe('when a record has a favorite count', () => {
+  describe('Favorite count', () => {
+    describe('when a record has a favorite count', () => {
+      beforeEach(() => {
+        component.record = {
+          ...DATASET_RECORDS[0],
+          extras: { favoriteCount: 42 },
+        }
+        fixture.detectChanges()
+      })
+      it('shows the amount of favorites on the record', () => {
+        favoriteCountHTMLEl = fixture.debugElement.query(
+          By.css('.favorite-count')
+        ).nativeElement
+        expect(favoriteCountHTMLEl).toBeTruthy()
+        expect(favoriteCountHTMLEl.textContent).toEqual(
+          component.record.extras.favoriteCount.toString()
+        )
+      })
+    })
+    describe('when a record does not have a favorite count', () => {
+      beforeEach(() => {
+        component.record = { ...DATASET_RECORDS[0] }
+        fixture.detectChanges()
+      })
+      it('does not show the amount of favorites on the record', () => {
+        const favoriteCountEl = fixture.debugElement.query(
+          By.css('.favorite-count')
+        )
+        expect(favoriteCountEl).toBeFalsy()
+      })
+    })
+  })
+  describe('Favorite component availability', () => {
+    describe('when authenticated', () => {
+      it('star toggle is enabled', () => {
+        expect(starToggle.disabled).toBe(false)
+      })
+      it('does not create tippy tooltip', () => {
+        expect(tippy).not.toHaveBeenCalled()
+      })
+    })
+    describe('when not authenticated', () => {
+      beforeEach(() => {
+        ;(authService as any).isAnonymous$.next(true)
+        fixture.detectChanges()
+      })
+      it('star toggle is disabled', () => {
+        expect(starToggle.disabled).toBe(true)
+      })
+      it('creates tippy tooltip', () => {
+        expect(tippy).toHaveBeenCalledWith(
+          expect.any(Object),
+          expect.objectContaining({
+            content: 'You can log in here',
+            allowHTML: true,
+            interactive: true,
+            zIndex: 40,
+            maxWidth: 250,
+          })
+        )
+      })
+    })
+  })
+  describe('On favorite click', () => {
     beforeEach(() => {
-      favoriteCountEl = fixture.debugElement.query(
+      component.record = {
+        ...DATASET_RECORDS[0],
+        extras: { favoriteCount: 42 },
+      }
+      fixture.detectChanges()
+    })
+    describe('When the record is already in favorites', () => {
+      beforeEach(() => {
+        starToggle.newValue.emit(false)
+        fixture.detectChanges()
+      })
+      it('removes record from favorites', () => {
+        expect(favoritesService.removeFromFavorites).toHaveBeenCalledWith([
+          component.record.uniqueIdentifier,
+        ])
+        expect(favoritesService.addToFavorites).not.toHaveBeenCalled()
+      })
+    })
+    describe('When the record is not in favorites', () => {
+      beforeEach(() => {
+        starToggle.newValue.emit(true)
+        fixture.detectChanges()
+      })
+      it('adds record to favorites', () => {
+        expect(favoritesService.addToFavorites).toHaveBeenCalledWith([
+          component.record.uniqueIdentifier,
+        ])
+        expect(favoritesService.removeFromFavorites).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('On favorites array update', () => {
+    beforeEach(() => {
+      component.record = {
+        ...DATASET_RECORDS[0],
+        extras: { favoriteCount: 42 },
+      }
+      fixture.detectChanges()
+      favoriteCountHTMLEl = fixture.debugElement.query(
         By.css('.favorite-count')
       ).nativeElement
     })
-    it('shows the amount of favorites on the record', () => {
-      expect(favoriteCountEl).toBeTruthy()
-      expect(favoriteCountEl.textContent).toEqual(
-        component.record.favoriteCount.toString()
-      )
-    })
-  })
-  describe('when a record does not have a favorite count', () => {
-    beforeEach(() => {
-      component.record = { ...RECORDS_SUMMARY_FIXTURE[0] }
-      delete component.record.favoriteCount
-      fixture.detectChanges()
-    })
-    it('does not show the amount of favorites on the record', () => {
-      expect(fixture.debugElement.query(By.css('.favorite-count'))).toBeFalsy()
-    })
-  })
-  describe('when authenticated', () => {
-    it('star toggle is enabled', () => {
-      expect(starToggle.disabled).toBe(false)
-    })
-    it('does not create tippy tooltip', () => {
-      expect(tippy).not.toHaveBeenCalled()
-    })
-    describe('on toggle state change', () => {
+    describe('When my record is part of the updates', () => {
       beforeEach(() => {
-        favoriteCountEl = fixture.debugElement.query(
-          By.css('.favorite-count')
-        ).nativeElement
+        ;(favoritesService as any).myFavoritesUuid$.next([
+          component.record.uniqueIdentifier,
+        ])
+        fixture.detectChanges()
       })
-      describe('if record is not part of favorite', () => {
-        beforeEach(() => {
-          ;(favoritesService as any).myFavoritesUuid$.next([
-            'aaa',
-            'bbb',
-            'ccc',
-          ])
-          starToggle.newValue.emit(true)
-          fixture.detectChanges()
-        })
-        it('adds record to favorites', () => {
-          expect(favoritesService.addToFavorites).toHaveBeenCalledWith([
-            component.record.uuid,
-          ])
-          expect(favoritesService.removeFromFavorites).not.toHaveBeenCalled()
-        })
-        it('increase record favorite count by one', () => {
-          expect(favoriteCountEl.textContent).toEqual(
-            (component.record.favoriteCount + 1).toString()
-          )
-        })
+      it('increase record favorite count by one', () => {
+        expect(favoriteCountHTMLEl.textContent).toEqual(
+          (component.record.extras.favoriteCount + 1).toString()
+        )
       })
-      describe('if record is part of favorite', () => {
-        beforeEach(() => {
-          ;(favoritesService as any).myFavoritesUuid$.next([
-            'aaa',
-            'bbb',
-            component.record.uuid,
-          ])
-          starToggle.newValue.emit(false)
-          fixture.detectChanges()
-        })
-        it('removes record from favorites', () => {
-          expect(favoritesService.removeFromFavorites).toHaveBeenCalledWith([
-            component.record.uuid,
-          ])
-          expect(favoritesService.addToFavorites).not.toHaveBeenCalled()
-        })
-        it('decrease record favorite count by one', () => {
-          expect(favoriteCountEl.textContent).toEqual(
-            (component.record.favoriteCount - 1).toString()
-          )
-        })
+    })
+    describe('When my record is not part of the updates', () => {
+      beforeEach(() => {
+        ;(favoritesService as any).myFavoritesUuid$.next(['aaa', 'bbb'])
+        fixture.detectChanges()
       })
-      describe('two subsequent changes', () => {
-        beforeEach(() => {
-          ;(favoritesService as any).myFavoritesUuid$.next([
-            'aaa',
-            'bbb',
-            component.record.uuid,
-          ])
-          starToggle.newValue.emit(false)
-          starToggle.newValue.emit(true)
-          fixture.detectChanges()
-        })
-        it('removes and adds record to favorites', () => {
-          expect(favoritesService.removeFromFavorites).toHaveBeenCalledWith([
-            component.record.uuid,
-          ])
-          expect(favoritesService.addToFavorites).toHaveBeenCalledWith([
-            component.record.uuid,
-          ])
-        })
-        it('record favorite count stays the same', () => {
-          expect(favoriteCountEl.textContent).toEqual(
-            component.record.favoriteCount.toString()
-          )
-        })
-      })
-      describe('if favorite modification fails', () => {
-        beforeEach(() => {
-          favoritesService.addToFavorites = () => throwError('blargz')
-          starToggle.newValue.emit(true)
-          fixture.detectChanges()
-        })
-        it('does not change record favorite count', () => {
-          expect(favoriteCountEl.textContent).toEqual(
-            component.record.favoriteCount.toString()
-          )
-        })
+      it('increase record favorite count by one', () => {
+        expect(favoriteCountHTMLEl.textContent).toEqual(
+          component.record.extras.favoriteCount.toString()
+        )
       })
     })
   })
-  describe('when not authenticated', () => {
+
+  describe('two subsequent changes', () => {
     beforeEach(() => {
-      ;(authService as any).isAnonymous$.next(true)
+      component.record = {
+        ...DATASET_RECORDS[0],
+        extras: { favoriteCount: 42 },
+      }
+      ;(favoritesService as any).myFavoritesUuid$.next(['aaa'])
+      starToggle.newValue.emit(false)
+      starToggle.newValue.emit(true)
       fixture.detectChanges()
     })
-    it('star toggle is disabled', () => {
-      expect(starToggle.disabled).toBe(true)
+    it('removes and adds record to favorites', () => {
+      expect(favoritesService.removeFromFavorites).toHaveBeenCalledWith([
+        component.record.uniqueIdentifier,
+      ])
+      expect(favoritesService.addToFavorites).toHaveBeenCalledWith([
+        component.record.uniqueIdentifier,
+      ])
     })
-    it('creates tippy tooltip', () => {
-      expect(tippy).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({
-          content: 'You can log in here',
-          allowHTML: true,
-          interactive: true,
-          zIndex: 40,
-          maxWidth: 250,
-        })
+    it('record favorite count stays the same', () => {
+      expect(favoriteCountHTMLEl.textContent).toEqual(
+        component.record.extras.favoriteCount.toString()
       )
     })
   })
+  describe('if favorite modification fails', () => {
+    beforeEach(() => {
+      component.record = {
+        ...DATASET_RECORDS[0],
+        extras: { favoriteCount: 42 },
+      }
+      favoritesService.addToFavorites = () => throwError('blargz')
+      starToggle.newValue.emit(true)
+      fixture.detectChanges()
+    })
+    it('does not change record favorite count', () => {
+      expect(favoriteCountHTMLEl.textContent).toEqual(
+        component.record.extras.favoriteCount.toString()
+      )
+    })
+  })
+
   describe('unsubscribe', () => {
     let unsubscribeSpy
     beforeEach(() => {

@@ -1,18 +1,25 @@
 import { DOCUMENT } from '@angular/common'
-import { Inject, NgModule } from '@angular/core'
+import { importProvidersFrom, Inject, NgModule } from '@angular/core'
 import { MatIconModule } from '@angular/material/icon'
 import { BrowserModule } from '@angular/platform-browser'
 import { Router, RouterModule } from '@angular/router'
 import { Configuration } from '@geonetwork-ui/data-access/gn4'
-import { FeatureCatalogModule } from '@geonetwork-ui/feature/catalog'
+import {
+  FeatureCatalogModule,
+  ORGANIZATION_URL_TOKEN,
+} from '@geonetwork-ui/feature/catalog'
 import { FeatureRecordModule } from '@geonetwork-ui/feature/record'
 import {
   DefaultRouterModule,
+  ROUTER_ROUTE_DATASET,
+  ROUTER_ROUTE_SEARCH,
+  ROUTE_PARAMS,
   RouterService,
 } from '@geonetwork-ui/feature/router'
 import {
   FeatureSearchModule,
   FILTER_GEOMETRY,
+  RECORD_URL_TOKEN,
 } from '@geonetwork-ui/feature/search'
 import {
   THUMBNAIL_PLACEHOLDER,
@@ -25,26 +32,21 @@ import {
   getGlobalConfig,
   getOptionalSearchConfig,
   getThemeConfig,
+  TRANSLATE_WITH_OVERRIDES_CONFIG,
 } from '@geonetwork-ui/util/app-config'
+import { UtilI18nModule } from '@geonetwork-ui/util/i18n'
 import {
-  TRANSLATE_DEFAULT_CONFIG,
-  UtilI18nModule,
-} from '@geonetwork-ui/util/i18n'
-import {
-  METADATA_LANGUAGE,
   PROXY_PATH,
   ThemeService,
   UtilSharedModule,
   getGeometryFromGeoJSON,
 } from '@geonetwork-ui/util/shared'
-import { LOGIN_URL } from '@geonetwork-ui/feature/auth'
+import { FeatureAuthModule, LOGIN_URL } from '@geonetwork-ui/feature/auth'
 import { EffectsModule } from '@ngrx/effects'
 import { MetaReducer, StoreModule } from '@ngrx/store'
 import { StoreDevtoolsModule } from '@ngrx/store-devtools'
 import { TranslateModule } from '@ngx-translate/core'
-import { filter } from 'rxjs/operators'
 import { environment } from '../environments/environment'
-
 import { AppComponent } from './app.component'
 import { HeaderBadgeButtonComponent } from './home/header-badge-button/header-badge-button.component'
 import { HomeHeaderComponent } from './home/home-header/home-header.component'
@@ -63,10 +65,11 @@ import { NavigationMenuComponent } from './home/navigation-menu/navigation-menu.
 import { FormsModule } from '@angular/forms'
 import { UiDatavizModule } from '@geonetwork-ui/ui/dataviz'
 import { WEB_COMPONENT_EMBEDDER_URL } from '@geonetwork-ui/feature/record'
+import { LANGUAGES_LIST, UiCatalogModule } from '@geonetwork-ui/ui/catalog'
+import { METADATA_LANGUAGE } from '@geonetwork-ui/api/repository'
 
 export const metaReducers: MetaReducer[] = !environment.production ? [] : []
 // https://github.com/nrwl/nx/issues/191
-
 @NgModule({
   declarations: [
     AppComponent,
@@ -103,7 +106,7 @@ export const metaReducers: MetaReducer[] = !environment.production ? [] : []
     !environment.production ? StoreDevtoolsModule.instrument() : [],
     EffectsModule.forRoot(),
     UtilI18nModule,
-    TranslateModule.forRoot(TRANSLATE_DEFAULT_CONFIG),
+    TranslateModule.forRoot(TRANSLATE_WITH_OVERRIDES_CONFIG),
     FeatureSearchModule,
     DefaultRouterModule.forRoot({
       searchStateId: 'mainSearch',
@@ -115,14 +118,16 @@ export const metaReducers: MetaReducer[] = !environment.production ? [] : []
     UiSearchModule,
     UtilSharedModule,
     MatIconModule,
-    UiInputsModule,
     UiLayoutModule,
     UiElementsModule,
     UiDatavizModule,
     FormsModule,
+    UiInputsModule,
+    UiCatalogModule,
   ],
   providers: [
     { provide: RouterService, useClass: DatahubRouterService },
+    importProvidersFrom(FeatureAuthModule),
     {
       provide: Configuration,
       useFactory: () =>
@@ -151,6 +156,10 @@ export const metaReducers: MetaReducer[] = !environment.production ? [] : []
       useFactory: () => getThemeConfig().THUMBNAIL_PLACEHOLDER,
     },
     {
+      provide: LANGUAGES_LIST,
+      useFactory: () => getGlobalConfig().LANGUAGES,
+    },
+    {
       provide: FILTER_GEOMETRY,
       useFactory: () => {
         if (getOptionalSearchConfig()?.FILTER_GEOMETRY_DATA) {
@@ -165,6 +174,11 @@ export const metaReducers: MetaReducer[] = !environment.production ? [] : []
         }
         return null
       },
+    },
+    { provide: RECORD_URL_TOKEN, useValue: `${ROUTER_ROUTE_DATASET}/\${uuid}` },
+    {
+      provide: ORGANIZATION_URL_TOKEN,
+      useValue: `${ROUTER_ROUTE_SEARCH}?${ROUTE_PARAMS.PUBLISHER}=\${name}`,
     },
   ],
   bootstrap: [AppComponent],
@@ -184,7 +198,7 @@ export class AppModule {
     ThemeService.generateBgOpacityClasses(
       'primary',
       getThemeConfig().PRIMARY_COLOR,
-      [10, 25, 75]
+      [10, 25, 50, 75, 100]
     )
   }
 }

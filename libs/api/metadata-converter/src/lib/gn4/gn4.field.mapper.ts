@@ -1,16 +1,8 @@
 import {
-  AccessConstraintType,
-  DatasetRecord,
-} from '@geonetwork-ui/util/types/metadata'
-import { getStatusFromStatusCode } from '../iso19139/codelists/status.mapper'
-import { getUpdateFrequencyFromFrequencyCode } from '../iso19139/codelists/update-frequency.mapper'
-import {
   getAsArray,
   getAsUrl,
   getFirstValue,
   mapContact,
-  mapLink,
-  mapOrganization,
   selectFallback,
   selectFallbackFields,
   selectField,
@@ -19,63 +11,73 @@ import {
   SourceWithUnknownProps,
   toDate,
 } from './atomic-operations'
-import { MetadataMapperContext } from '../metadata-base.mapper'
+import { MetadataUrlService } from './metadata-url.service'
+import { Injectable } from '@angular/core'
+import { getStatusFromStatusCode } from '../iso19139/codelists/status.mapper'
+import { getUpdateFrequencyFromFrequencyCode } from '../iso19139/codelists/update-frequency.mapper'
+import {
+  AccessConstraintType,
+  CatalogRecord,
+  DatasetDistribution,
+  DatasetDistributionType,
+  DatasetDownloadDistribution,
+  DatasetServiceDistribution,
+  OnlineLinkResource,
+} from '@geonetwork-ui/common/domain/record'
+import { matchProtocol } from '../common/distribution.mapper'
+import { LangService } from '@geonetwork-ui/util/i18n'
 
 type ESResponseSource = SourceWithUnknownProps
 
 type EsFieldMapperFn = (
-  output: Partial<DatasetRecord>,
+  output: Partial<CatalogRecord>,
   source: ESResponseSource
-) => Partial<DatasetRecord>
+) => Partial<CatalogRecord>
 
+@Injectable({
+  providedIn: 'root',
+})
 export class Gn4FieldMapper {
-  constructor(protected ctx: MetadataMapperContext) {}
+  constructor(
+    private metadataUrlService: MetadataUrlService,
+    private langService: LangService
+  ) {}
+
+  private lang3 = this.langService.gnLang
 
   protected fields: Record<string, EsFieldMapperFn> = {
     id: (output, source) =>
       this.addExtra({ id: selectField(source, 'id') }, output),
     uuid: (output, source) => {
-      const uniqueIdentifier = selectField<string>(source, 'uuid')
-      return { ...output, uniqueIdentifier }
+      const uuid = selectField<string>(source, 'uuid')
+      const landingPage = getAsUrl(this.metadataUrlService.getUrl(uuid))
+      return { ...output, uniqueIdentifier: uuid, landingPage }
     },
     resourceTitleObject: (output, source) => ({
       ...output,
       title: selectFallback(
-        selectTranslatedField(source, 'resourceTitleObject'),
+        selectTranslatedField(source, 'resourceTitleObject', this.lang3),
         'no title'
       ),
     }),
     resourceAbstractObject: (output, source) => ({
       ...output,
       abstract: selectFallback(
-        selectTranslatedField(source, 'resourceAbstractObject'),
+        selectTranslatedField(source, 'resourceAbstractObject', this.lang3),
         'no title'
       ),
     }),
     overview: (output, source) => {
       const firstOverview = getFirstValue(selectField(source, 'overview'))
       const description = selectTranslatedValue<string>(
-        selectField(firstOverview, 'text')
+        selectField(firstOverview, 'text'),
+        this.lang3
       )
-      const t = selectFallbackFields(firstOverview, 'data', 'url')
-      const r = selectFallback(
-        selectFallbackFields(firstOverview, 'data', 'url'),
-        ''
-      )
-      const a = getAsUrl(
-        selectFallback(selectFallbackFields(firstOverview, 'data', 'url'), '')
-      )
-
       return {
         ...output,
         overviews: [
           {
-            url: getAsUrl(
-              selectFallback(
-                selectFallbackFields(firstOverview, 'data', 'url'),
-                ''
-              )
-            ),
+            url: getAsUrl(selectFallbackFields(firstOverview, 'url', 'data')),
             ...(description ? { description } : {}),
           },
         ],
@@ -116,7 +118,9 @@ export class Gn4FieldMapper {
       const rawLinks = getAsArray(
         selectField<SourceWithUnknownProps[]>(source, 'link')
       )
-      const distributions = rawLinks.map(mapLink).filter((v) => v !== null)
+      const distributions = rawLinks
+        .map((link) => this.mapLink(link))
+        .filter((v) => v !== null)
       return {
         ...output,
         distributions,
@@ -124,32 +128,38 @@ export class Gn4FieldMapper {
     },
     contact: (output, source) => ({
       ...output,
-      ownerOrganization: mapOrganization(
-        getFirstValue(selectField(source, 'contact')),
-        source
-      ),
+      contacts: [
+        mapContact(getFirstValue(selectField(source, 'contact')), this.lang3),
+      ],
     }),
     contactForResource: (output, source) => ({
       ...output,
-      contacts: [
-        ...(output.contacts || []),
+      contactsForResource: [
+        ...('contactsForResource' in output &&
+        Array.isArray(output.contactsForResource)
+          ? output.contactsForResource
+          : []),
         ...getAsArray(selectField(source, 'contactForResource')).map(
-          (contact) => mapContact(contact, source)
+          (contact) => mapContact(contact, this.lang3)
         ),
       ],
     }),
-    sourceCatalogue: (output, source) => ({
-      ...output,
-      catalogUuid: selectFallback(
-        selectField(source, 'sourceCatalogue'),
-        'no title'
-      ),
-    }),
+    sourceCatalogue: (output, source) => {
+      return this.addExtra(
+        {
+          catalogUuid: selectFallback(
+            selectField(source, 'sourceCatalogue'),
+            'no title'
+          ),
+        },
+        output
+      )
+    },
     tag: (output, source) => ({
       ...output,
       keywords: getAsArray(
         selectField<SourceWithUnknownProps[]>(source, 'tag')
-      ).map((tag) => selectTranslatedValue<string>(tag)),
+      ).map((tag) => selectTranslatedValue<string>(tag, this.lang3)),
     }),
     inspireTheme: (output, source) => ({
       ...output,
@@ -182,14 +192,14 @@ export class Gn4FieldMapper {
       ).map((license) => {
         const link = getAsUrl(selectField(license, 'link'))
         return {
-          text: selectTranslatedValue<string>(license),
+          text: selectTranslatedValue<string>(license, this.lang3),
           ...(link ? { link } : {}),
         }
       }),
     }),
     lineageObject: (output, source) => ({
       ...output,
-      lineage: selectTranslatedField(source, 'lineageObject'),
+      lineage: selectTranslatedField(source, 'lineageObject', this.lang3),
     }),
     mainLanguage: (output) => output,
     userSavedCount: (output, source) =>
@@ -213,6 +223,24 @@ export class Gn4FieldMapper {
         },
         output
       ),
+    userinfo: (output, source) =>
+      this.addExtra(
+        {
+          ownerInfo: selectField(source, 'userinfo'),
+        },
+        output
+      ),
+    cl_hierarchyLevel: (output, source) => {
+      const hierarchyLevel = selectField(
+        getFirstValue(selectField(source, 'cl_hierarchyLevel')),
+        'key'
+      )
+      const kind = hierarchyLevel === 'service' ? 'service' : 'dataset'
+      return {
+        ...output,
+        kind,
+      }
+    },
   }
 
   private genericField = (output) => output
@@ -224,7 +252,8 @@ export class Gn4FieldMapper {
           useLimitations: [
             ...(output.useLimitations || []),
             ...selectField<SourceWithUnknownProps[]>(source, fieldName).map(
-              selectTranslatedValue
+              (source: SourceWithUnknownProps) =>
+                selectTranslatedValue(source, this.lang3)
             ),
           ],
         }
@@ -233,17 +262,12 @@ export class Gn4FieldMapper {
             ...(output.accessConstraints || []),
             ...selectField<SourceWithUnknownProps[]>(source, fieldName).map(
               (field) => ({
-                text: selectTranslatedValue(field),
+                text: selectTranslatedValue(field, this.lang3),
                 type: this.getConstraintsType(fieldName),
               })
             ),
           ],
         }),
-  })
-
-  private addExtra = (value: object, output) => ({
-    ...output,
-    extras: { ...(output.extras || {}), ...value },
   })
 
   private getConstraintsType(indexField: string): AccessConstraintType {
@@ -261,4 +285,90 @@ export class Gn4FieldMapper {
   getMappingFn(fieldName: string) {
     return fieldName in this.fields ? this.fields[fieldName] : this.genericField
   }
+
+  getLinkType(url: string, protocol?: string): DatasetDistributionType {
+    if (!protocol) {
+      return 'link'
+    }
+    if (
+      (/^ESRI:REST/.test(protocol) && /FeatureServer/.test(url)) ||
+      /^OGC:WMS/.test(protocol) ||
+      /^OGC:WFS/.test(protocol) ||
+      /^OGC:WMTS/.test(protocol)
+    ) {
+      return 'service'
+    }
+    if (/^WWW:DOWNLOAD/.test(protocol)) {
+      return 'download'
+    }
+    return 'link'
+  }
+
+  mapLink = (
+    sourceLink: SourceWithUnknownProps
+  ): DatasetDistribution | null => {
+    const url = getAsUrl(
+      selectFallback(
+        selectTranslatedField<string>(sourceLink, 'urlObject', this.lang3),
+        selectField<string>(sourceLink, 'url')
+      )
+    )
+    const name = selectFallback(
+      selectTranslatedField<string>(sourceLink, 'nameObject', this.lang3),
+      selectField<string>(sourceLink, 'name')
+    )
+    const description = selectFallback(
+      selectTranslatedField<string>(
+        sourceLink,
+        'descriptionObject',
+        this.lang3
+      ),
+      selectField<string>(sourceLink, 'description')
+    )
+    // no url: fail early
+    if (url === null) {
+      // TODO: collect errors at the record level?
+      console.warn('A link without valid URL was found', sourceLink)
+      return null
+    }
+
+    const protocol = selectField<string>(sourceLink, 'protocol')
+    const type = this.getLinkType(url.toString(), protocol)
+    const accessServiceProtocol = matchProtocol(protocol)
+    const mimeTypeMatches =
+      protocol && protocol.match(/^WWW:DOWNLOAD:(.+\/.+)$/)
+    const mimeType = mimeTypeMatches && mimeTypeMatches[1]
+
+    const distribution = {
+      ...(name && { name }),
+      ...(description && { description }),
+    }
+    switch (type) {
+      case 'service':
+        return {
+          ...distribution,
+          type,
+          url: url,
+          accessServiceProtocol,
+        } as DatasetServiceDistribution
+      case 'link':
+        return {
+          ...distribution,
+          type,
+          url: url,
+        } as OnlineLinkResource
+      case 'download':
+        return {
+          ...distribution,
+          type,
+          url: url,
+          ...(mimeType && { mimeType }),
+        } as DatasetDownloadDistribution
+    }
+  }
+
+  private addExtra = (value: object, output: Partial<CatalogRecord>) => ({
+    ...output,
+    extras: { ...(output.extras || {}), ...value },
+  })
 }

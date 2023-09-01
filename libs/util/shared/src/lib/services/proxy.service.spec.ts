@@ -2,7 +2,8 @@ import { PROXY_PATH, ProxyService } from './proxy.service'
 import { TestBed } from '@angular/core/testing'
 
 // mock window.location
-;(global as any).window = Object.create(window)
+// workaround for https://github.com/nodejs/node/issues/47563
+;(global as any).window ??= Object.create(window)
 Object.defineProperty(window, 'location', {
   value: new URL('http://myhost:1234/my/path?abc'),
 })

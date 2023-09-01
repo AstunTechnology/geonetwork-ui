@@ -7,7 +7,6 @@ import {
   tick,
 } from '@angular/core/testing'
 import { TableViewComponent } from './table-view.component'
-import { MetadataLinkType } from '@geonetwork-ui/util/shared'
 import { of, throwError } from 'rxjs'
 import {
   ChangeDetectionStrategy,
@@ -19,7 +18,8 @@ import {
 import { TranslateModule } from '@ngx-translate/core'
 import { By } from '@angular/platform-browser'
 import { DataService } from '../service/data.service'
-import { LINK_FIXTURES } from '@geonetwork-ui/util/shared/fixtures'
+import { LINK_FIXTURES } from '@geonetwork-ui/common/fixtures'
+import { FetchError } from '@geonetwork-ui/data-fetcher'
 
 const SAMPLE_DATA_ITEMS = [
   { type: 'Feature', properties: { id: 1 } },
@@ -32,8 +32,8 @@ class DatasetReaderMock {
 }
 class DataServiceMock {
   getDataset = jest.fn(({ url }) =>
-    url.indexOf('error') > -1
-      ? throwError(new Error('data loading error'))
+    url.toString().indexOf('error') > -1
+      ? throwError(() => new FetchError('unknown', 'data loading error'))
       : of(new DatasetReaderMock())
   )
 }
@@ -156,17 +156,30 @@ describe('TableViewComponent', () => {
   })
   describe('error when loading data', () => {
     beforeEach(fakeAsync(() => {
+      dataService.getDataset = () =>
+        throwError(() => new Error('data loading error'))
       component.link = {
-        url: 'http://abcd.com/wfs/error',
-        name: 'featuretype',
-        protocol: 'OGC:WFS',
-        type: MetadataLinkType.WFS,
+        ...LINK_FIXTURES.dataCsv,
+        url: new URL('http://changed/'),
       }
       flushMicrotasks()
       fixture.detectChanges()
     }))
     it('shows an error warning', () => {
       expect(component.error).toEqual('data loading error')
+    })
+  })
+  describe('FetchError when loading data', () => {
+    beforeEach(fakeAsync(() => {
+      component.link = {
+        url: new URL('http://abcd.com/wfs/error'),
+        type: 'download',
+      }
+      flushMicrotasks()
+      fixture.detectChanges()
+    }))
+    it('shows an error warning', () => {
+      expect(component.error).toEqual('dataset.error.unknown')
     })
   })
 })

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core'
-import { UserModel } from '@geonetwork-ui/util/shared'
+import { UserModel } from '@geonetwork-ui/common/domain/user.model'
 
 @Component({
   selector: 'gn-ui-user-preview',
@@ -8,4 +8,9 @@ import { UserModel } from '@geonetwork-ui/util/shared'
 })
 export class UserPreviewComponent {
   @Input() user: UserModel
+  @Input() avatarPlaceholder?: string
+
+  get userFullName() {
+    return (this.user.name + ' ' + this.user.surname).trim()
+  }
 }

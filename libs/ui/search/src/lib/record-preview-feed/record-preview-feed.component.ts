@@ -20,15 +20,15 @@ export class RecordPreviewFeedComponent extends RecordPreviewComponent {
   }
 
   get hasOrganization() {
-    return this.contact && this.contact.organisation
+    return !!this.record.ownerOrganization
   }
   get hasLogo() {
-    return this.contact && this.contact.logoUrl
+    return !!this.record.ownerOrganization?.logoUrl
   }
   get hasOnlyPerson() {
-    return this.contact && !this.contact.organisation && this.contact.name
+    return false // FIXME: this doesn't make sense anymore, there should always be an owner org
   }
   get time() {
-    return this.timeFormat.format(this.record.createdOn, Date.now())
+    return this.timeFormat.format(this.record.recordCreated, Date.now())
   }
 }

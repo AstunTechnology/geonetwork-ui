@@ -11,14 +11,16 @@ import {
   Component,
   EventEmitter,
   Input,
+  NO_ERRORS_SCHEMA,
   Output,
 } from '@angular/core'
 import { TranslateModule } from '@ngx-translate/core'
 import { DataService } from '../service/data.service'
 import { firstValueFrom, of, throwError } from 'rxjs'
 import { By } from '@angular/platform-browser'
-import { LINK_FIXTURES } from '@geonetwork-ui/util/shared/fixtures'
+import { LINK_FIXTURES } from '@geonetwork-ui/common/fixtures'
 import { DropdownSelectorComponent } from '@geonetwork-ui/ui/inputs'
+import { FetchError } from '@geonetwork-ui/data-fetcher'
 
 @Component({
   selector: 'gn-ui-chart',
@@ -82,7 +84,9 @@ class DatasetReaderMock {
     }
     this.properties = Promise.resolve(properties)
     if (url.indexOf('error-props') > -1) {
-      this.properties = Promise.reject(new Error('could not get props'))
+      this.properties = Promise.reject(
+        new FetchError('unknown', 'could not get props')
+      )
     }
     DatasetReaderMock.instance = this
   }
@@ -97,7 +101,7 @@ class DatasetReaderMock {
   )
 }
 class DataServiceMock {
-  getDataset = jest.fn((link) => of(new DatasetReaderMock(link.url)))
+  getDataset = jest.fn((link) => of(new DatasetReaderMock(link.url.toString())))
 }
 
 describe('ChartViewComponent', () => {
@@ -120,6 +124,7 @@ describe('ChartViewComponent', () => {
           useClass: DataServiceMock,
         },
       ],
+      schemas: [NO_ERRORS_SCHEMA],
     })
       .overrideComponent(ChartViewComponent, {
         set: {
@@ -180,7 +185,10 @@ describe('ChartViewComponent', () => {
   describe('when link changes', () => {
     beforeEach(fakeAsync(() => {
       jest.clearAllMocks()
-      component.link = { ...LINK_FIXTURES.dataCsv, url: 'http://changed/' }
+      component.link = {
+        ...LINK_FIXTURES.dataCsv,
+        url: new URL('http://changed/'),
+      }
       flushMicrotasks()
     }))
     it('recreates the dataset reader', () => {
@@ -308,7 +316,10 @@ describe('ChartViewComponent', () => {
     beforeEach(fakeAsync(() => {
       dataService.getDataset = () =>
         throwError(() => new Error('could not open dataset'))
-      component.link = { ...LINK_FIXTURES.dataCsv, url: 'http://changed/' }
+      component.link = {
+        ...LINK_FIXTURES.dataCsv,
+        url: new URL('http://changed/'),
+      }
       flushMicrotasks()
       fixture.detectChanges()
     }))
@@ -322,7 +333,10 @@ describe('ChartViewComponent', () => {
 
   describe('dataset fails on properties info', () => {
     beforeEach(fakeAsync(() => {
-      component.link = { ...LINK_FIXTURES.dataCsv, url: 'http://error-props/' }
+      component.link = {
+        ...LINK_FIXTURES.dataCsv,
+        url: new URL('http://error-props/'),
+      }
       flushMicrotasks()
       fixture.detectChanges()
     }))
@@ -330,7 +344,7 @@ describe('ChartViewComponent', () => {
       expect(component.loading).toBe(false)
     })
     it('shows error', () => {
-      expect(component.error).toBe('could not get props')
+      expect(component.error).toBe('dataset.error.unknown')
     })
   })
 
@@ -338,7 +352,7 @@ describe('ChartViewComponent', () => {
     beforeEach(fakeAsync(() => {
       component.link = {
         ...LINK_FIXTURES.dataCsv,
-        url: 'http://server.org/no-string-props/',
+        url: new URL('http://server.org/no-string-props/'),
       }
       flushMicrotasks()
       fixture.detectChanges()
@@ -354,7 +368,9 @@ describe('ChartViewComponent', () => {
       component.aggregation$.next('sum')
       component.link = {
         ...LINK_FIXTURES.dataCsv,
-        url: 'http://server.org/no-number-props/no-date-props/more-results/',
+        url: new URL(
+          'http://server.org/no-number-props/no-date-props/more-results/'
+        ),
       }
       flushMicrotasks()
       fixture.detectChanges()

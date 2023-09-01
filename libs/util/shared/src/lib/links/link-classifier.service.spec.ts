@@ -1,5 +1,5 @@
 import { LinkClassifierService, LinkUsage } from './link-classifier.service'
-import { LINK_FIXTURES } from '../fixtures/link.fixtures'
+import { LINK_FIXTURES } from '@geonetwork-ui/common/fixtures'
 
 describe('LinkClassifierService', () => {
   let service: LinkClassifierService
@@ -28,6 +28,17 @@ describe('LinkClassifierService', () => {
           LinkUsage.DOWNLOAD,
           LinkUsage.GEODATA,
         ])
+      })
+    })
+    describe('for a WFS link (registered as download)', () => {
+      it('returns download, data and API usage', () => {
+        expect(
+          service.getUsagesForLink({
+            name: 'mylayer',
+            type: 'download',
+            url: new URL('https://my.ogc.server/wfs?abcd'),
+          })
+        ).toEqual([LinkUsage.DOWNLOAD, LinkUsage.GEODATA])
       })
     })
     describe('for a ESRI REST feature service link', () => {
@@ -94,9 +105,9 @@ describe('LinkClassifierService', () => {
       })
     })
     describe('for a landing page', () => {
-      it('returns landingpage usage', () => {
+      it('returns unknown usage', () => {
         expect(service.getUsagesForLink(LINK_FIXTURES.landingPage)).toEqual([
-          LinkUsage.LANDING_PAGE,
+          LinkUsage.UNKNOWN,
         ])
       })
     })

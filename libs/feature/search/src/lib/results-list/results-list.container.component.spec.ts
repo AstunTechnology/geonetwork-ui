@@ -5,18 +5,19 @@ import {
   DEFAULT_RESULTS_LAYOUT_CONFIG,
   RESULTS_LAYOUT_CONFIG,
 } from '@geonetwork-ui/ui/search'
-import { MetadataRecord } from '@geonetwork-ui/util/shared'
 import { BehaviorSubject, of } from 'rxjs'
 import { SearchFacade } from '../state/search.facade'
 import { ResultsListContainerComponent } from './results-list.container.component'
 import { ButtonComponent } from '@geonetwork-ui/ui/inputs'
+import { DATASET_RECORDS } from '@geonetwork-ui/common/fixtures'
+import { CatalogRecord } from '@geonetwork-ui/common/domain/record'
 
 @Component({
   selector: 'gn-ui-results-list',
   template: '',
 })
 class ResultsListMockComponent {
-  @Input() records: MetadataRecord[]
+  @Input() records: CatalogRecord[]
   @Input() loading: boolean
   @Input() layout = 'CARD'
 }
@@ -150,6 +151,24 @@ describe('ResultsListContainerComponent', () => {
       })
       it('loading spinner is shown', () => {
         expect(getLoadingEl()).toBeTruthy()
+      })
+    })
+  })
+
+  describe('record url', () => {
+    describe('without templates', () => {
+      it('returns null', () => {
+        expect(component.getRecordUrl(DATASET_RECORDS[0])).toBe(null)
+      })
+    })
+    describe('with templates', () => {
+      beforeEach(() => {
+        component['recordUrlTemplate'] = '/my/record/${uuid}/open'
+      })
+      it('returns actual urls', () => {
+        expect(component.getRecordUrl(DATASET_RECORDS[0])).toBe(
+          '/my/record/my-dataset-001/open'
+        )
       })
     })
   })

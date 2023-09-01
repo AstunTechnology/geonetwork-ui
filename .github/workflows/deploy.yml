@@ -2,7 +2,7 @@ name: Deploy
 run-name: 🚀 Deploy to GitHub Pages for ${{ github.event_name == 'issue_comment' && 'PR' || '🌱' }} ${{github.event_name == 'issue_comment' && github.event.issue.number || github.ref_name}}
 
 env:
-  NODE_VERSION: 16.17.0
+  NODE_VERSION: 18.16.1
 
 # This workflow runs whenever the "deploy affected apps" checkbox is checked (for PR)
 # or on every push to main
@@ -78,6 +78,9 @@ jobs:
       - name: Build demo & web components
         run: npm run build:demo
 
+      - name: Build docs
+        run: npm run docs:build -- --base=/geonetwork-ui/${{env.BRANCH_NAME}}/docs/ && mkdir -p dist/docs && mv docs/.vitepress/dist/* dist/docs
+
       # FIXME: restore a system for testing web components but faster/lighter than storybook
       #      - name: Build storybook for web components
       #        run: npm run build:storybook-wc
@@ -94,9 +97,11 @@ jobs:
         with:
           message: 'GitHub Pages links:
 
-            * Demo & web components: https://geonetwork.github.io/geonetwork-ui/${{env.BRANCH_NAME}}/demo/
+            * (Documentation)[https://geonetwork.github.io/geonetwork-ui/${{env.BRANCH_NAME}}/docs/]
 
-            * UI components storybook: https://geonetwork.github.io/geonetwork-ui/${{env.BRANCH_NAME}}/storybook/demo/'
+            * (Demo & web components)[https://geonetwork.github.io/geonetwork-ui/${{env.BRANCH_NAME}}/demo/]
+
+            * (UI components storybook)[https://geonetwork.github.io/geonetwork-ui/${{env.BRANCH_NAME}}/storybook/demo/]'
           comment_tag: github-links
           pr_number: ${{ github.event.issue.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

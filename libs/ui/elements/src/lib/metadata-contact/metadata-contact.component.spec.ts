@@ -1,7 +1,6 @@
 import { NO_ERRORS_SCHEMA } from '@angular/core'
 import { ComponentFixture, TestBed } from '@angular/core/testing'
 import { By } from '@angular/platform-browser'
-
 import { MetadataContactComponent } from './metadata-contact.component'
 
 describe('MetadataContactComponent', () => {
@@ -19,16 +18,21 @@ describe('MetadataContactComponent', () => {
     fixture = TestBed.createComponent(MetadataContactComponent)
     component = fixture.componentInstance
     component.metadata = {
-      resourceContacts: [
+      kind: 'dataset',
+      ownerOrganization: {
+        name: 'Worldcorp',
+        website: new URL('https://john.world.co'),
+      },
+      contactsForResource: [
         {
           name: 'john',
-          organisation: 'Worldcorp',
+          organization: 'Worldcorp',
           email: 'john@world.co',
           website: 'https://john.world.co',
         },
         {
           name: 'billy',
-          organisation: 'small corp',
+          organization: 'small corp',
           email: 'billy@small.co',
           website: 'https://billy.small.co',
         },
@@ -43,20 +47,23 @@ describe('MetadataContactComponent', () => {
   describe('on contact click', () => {
     beforeEach(() => {
       jest.resetAllMocks()
-      jest.spyOn(component.contact, 'emit')
+      jest.spyOn(component.organizationClick, 'emit')
     })
     it('emit contact click with contact name', () => {
       const el = fixture.debugElement.query(
         By.css('.text-primary.font-title')
       ).nativeElement
       el.click()
-      expect(component.contact.emit).toHaveBeenCalledWith('Worldcorp')
+      expect(component.organizationClick.emit).toHaveBeenCalledWith({
+        name: 'Worldcorp',
+        website: new URL('https://john.world.co'),
+      })
     })
   })
   describe('content', () => {
-    let ps
+    let email
     beforeEach(() => {
-      ps = fixture.debugElement.queryAll(By.css('p'))
+      email = fixture.debugElement.query(By.css('a'))
     })
     it('displays the contact name', () => {
       const el = fixture.debugElement.query(
@@ -65,11 +72,11 @@ describe('MetadataContactComponent', () => {
       expect(el.innerHTML).toBe(' Worldcorp ')
     })
     it('displays the contact email', () => {
-      expect(ps[1].nativeElement.innerHTML).toBe('john@world.co')
+      expect(email.attributes.href).toBe('mailto:john@world.co')
     })
     it('displays a link to the contact website', () => {
-      const a = fixture.debugElement.query(By.css('a'))
-      expect(a.attributes.href).toBe('https://john.world.co')
+      const a = fixture.debugElement.query(By.css('.contact-website'))
+      expect(a.attributes.href).toBe('https://john.world.co/')
       expect(a.attributes.target).toBe('_blank')
     })
   })

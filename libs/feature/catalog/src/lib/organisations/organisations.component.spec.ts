@@ -8,14 +8,12 @@ import {
 } from '@angular/core'
 import { ComponentFixture, TestBed } from '@angular/core/testing'
 import { By } from '@angular/platform-browser'
-import { SearchService } from '@geonetwork-ui/feature/search'
 import { ContentGhostComponent } from '@geonetwork-ui/ui/elements'
-import { Organisation } from '@geonetwork-ui/util/shared'
-import { ORGANISATIONS_FIXTURE } from '@geonetwork-ui/util/shared/fixtures'
-import { readFirst } from '@nrwl/angular/testing'
-import { of } from 'rxjs'
+import { Organization } from '@geonetwork-ui/common/domain/record'
+import { firstValueFrom, of } from 'rxjs'
+import { ORGANISATIONS_FIXTURE } from '@geonetwork-ui/common/fixtures'
 import { OrganisationsComponent } from './organisations.component'
-import { OrganisationsService } from './organisations.service'
+import { OrganizationsServiceInterface } from '@geonetwork-ui/common/domain/organizations.service.interface'
 
 @Component({
   selector: 'gn-ui-organisations-sort',
@@ -29,8 +27,8 @@ class OrganisationsSortMockComponent {
   template: '<div></div>',
 })
 class OrganisationPreviewMockComponent {
-  @Input() organisation: Organisation
-  @Output() clickedOrganisation = new EventEmitter<Organisation>()
+  @Input() organisation: Organization
+  @Output() clickedOrganisation = new EventEmitter<Organization>()
 }
 
 @Component({
@@ -44,17 +42,13 @@ class PaginationMockComponent {
 }
 
 class OrganisationsServiceMock {
-  hydratedOrganisations$ = of(ORGANISATIONS_FIXTURE)
-}
-
-class SearchServiceMock {
-  setFilters = jest.fn()
+  organisations$ = of(ORGANISATIONS_FIXTURE)
 }
 
 const organisationMock = {
   name: 'My Org',
   description: 'A good description',
-  logoUrl: 'https://somedomain.org',
+  logoUrl: new URL('https://somedomain.org'),
   recordCount: 12,
 }
 
@@ -64,8 +58,6 @@ describe('OrganisationsComponent', () => {
   let component: OrganisationsComponent
   let fixture: ComponentFixture<OrganisationsComponent>
   let de: DebugElement
-  let organisationsService: OrganisationsService
-  let searchService: SearchService
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -78,12 +70,8 @@ describe('OrganisationsComponent', () => {
       ],
       providers: [
         {
-          provide: OrganisationsService,
+          provide: OrganizationsServiceInterface,
           useClass: OrganisationsServiceMock,
-        },
-        {
-          provide: SearchService,
-          useClass: SearchServiceMock,
         },
       ],
     })
@@ -92,8 +80,6 @@ describe('OrganisationsComponent', () => {
       })
       .compileComponents()
 
-    organisationsService = TestBed.inject(OrganisationsService)
-    searchService = TestBed.inject(SearchService)
     fixture = TestBed.createComponent(OrganisationsComponent)
     component = fixture.componentInstance
     component.itemsOnPage = ITEMS_ON_PAGE
@@ -171,17 +157,17 @@ describe('OrganisationsComponent', () => {
         setSortBySpy = jest.spyOn(component, 'setSortBy')
         de.query(
           By.directive(OrganisationsSortMockComponent)
-        ).triggerEventHandler('sortBy', 'recordCount-desc')
+        ).triggerEventHandler('sortBy', ['desc', 'recordCount'])
         fixture.detectChanges()
         orgPreviewComponents = de
           .queryAll(By.directive(OrganisationPreviewMockComponent))
           .map((debugElement) => debugElement.componentInstance)
       })
       it('should call setSortBy', () => {
-        expect(setSortBySpy).toHaveBeenCalledWith('recordCount-desc')
+        expect(setSortBySpy).toHaveBeenCalledWith(['desc', 'recordCount'])
       })
       it('should have organisation with max recordCount at first position in observable', async () => {
-        const organisations = await readFirst(component.organisations$)
+        const organisations = await firstValueFrom(component.organisations$)
         expect(organisations[0]).toEqual(ORGANISATIONS_FIXTURE[5])
       })
       it('should pass organisation with max recordCount to first preview component', () => {
@@ -196,7 +182,10 @@ describe('OrganisationsComponent', () => {
       })
     })
     describe('click on organisation', () => {
+      let orgSelected
       beforeEach(() => {
+        orgSelected = []
+        component.orgSelect.subscribe((org) => orgSelected.push(org))
         de.query(
           By.directive(OrganisationPreviewMockComponent)
         ).triggerEventHandler('clickedOrganisation', organisationMock)
@@ -205,11 +194,22 @@ describe('OrganisationsComponent', () => {
       afterEach(() => {
         jest.restoreAllMocks()
       })
-      it('should call searchByOrganisation() with correct organisation', () => {
-        expect(searchService.setFilters).toHaveBeenCalledWith({
-          OrgForResource: { [organisationMock.name]: true },
-        })
+      it('emits an orgSelect event', () => {
+        expect(orgSelected).toEqual([organisationMock])
       })
+    })
+    it('should not have href if RightClickToken not provided', () => {
+      expect(component.getOrganisationUrl(organisationMock)).toBe(null)
+    })
+  })
+  describe('ORGANIZATION_URL_TOKEN provided', () => {
+    beforeEach(() => {
+      component['urlTemplate'] = '/my/link/${name}/open'
+    })
+    it('sets href based on given url template', () => {
+      expect(component.getOrganisationUrl(organisationMock)).toBe(
+        '/my/link/My Org/open'
+      )
     })
   })
 })

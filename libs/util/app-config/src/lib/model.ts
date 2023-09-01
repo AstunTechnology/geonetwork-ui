@@ -6,6 +6,7 @@ export interface GlobalConfig {
   METADATA_LANGUAGE?: string
   LOGIN_URL?: string
   WEB_COMPONENT_EMBEDDER_URL?: string
+  LANGUAGES?: string[]
 }
 
 export interface LayerConfig {
@@ -37,9 +38,17 @@ export interface ThemeConfig {
   FONTS_STYLESHEET_URL?: string
 }
 
+export interface SearchPreset {
+  sort: string
+  name: string
+  filters: Record<string, string[] | string>
+}
+
 export interface SearchConfig {
   FILTER_GEOMETRY_URL?: string
   FILTER_GEOMETRY_DATA?: string
+  SEARCH_PRESET?: SearchPreset[]
+  ADVANCED_FILTERS?: []
 }
 
 export type CustomTranslations = { [translationKey: string]: string }

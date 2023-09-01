@@ -1,20 +1,26 @@
 import {
-  moduleMetadata,
-  Story,
-  Meta,
+  applicationConfig,
   componentWrapperDecorator,
+  Meta,
+  moduleMetadata,
+  StoryObj,
 } from '@storybook/angular'
 import { DownloadItemComponent } from './download-item.component'
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations'
-import { UiElementsModule } from '../ui-elements.module'
-import { MetadataLinkType } from '@geonetwork-ui/util/shared'
+import { TranslateModule } from '@ngx-translate/core'
+import { importProvidersFrom } from '@angular/core'
+import { MatIcon } from '@angular/material/icon'
 
 export default {
   title: 'Elements/DownloadsListItemComponent',
   component: DownloadItemComponent,
   decorators: [
     moduleMetadata({
-      imports: [UiElementsModule, BrowserAnimationsModule],
+      declarations: [MatIcon],
+      imports: [TranslateModule.forRoot()],
+    }),
+    applicationConfig({
+      providers: [importProvidersFrom(BrowserAnimationsModule)],
     }),
     componentWrapperDecorator(
       (story) => `<div style="max-width: 800px">${story}</div>`
@@ -22,25 +28,18 @@ export default {
   ],
 } as Meta<DownloadItemComponent>
 
-const Template: Story<DownloadItemComponent> = (
-  args: DownloadItemComponent
-) => ({
-  component: DownloadItemComponent,
-  props: args,
-})
-
-export const Primary = Template.bind({})
-Primary.args = {
-  link: {
-    protocol: 'WWW:DOWNLOAD',
-    name: 'allroads.geojson',
-    type: MetadataLinkType.DOWNLOAD,
-    description: 'A file that contains all roads',
-    url: 'https//roads.com/allroads.geojson',
+export const Primary: StoryObj<DownloadItemComponent> = {
+  args: {
+    link: {
+      name: 'allroads.geojson',
+      type: 'download',
+      description: 'A file that contains all roads',
+      url: new URL('https://roads.com/allroads.geojson'),
+    },
   },
-}
-Primary.argTypes = {
-  exportUrl: {
-    action: 'exportUrl',
+  argTypes: {
+    exportUrl: {
+      action: 'exportUrl',
+    },
   },
 }

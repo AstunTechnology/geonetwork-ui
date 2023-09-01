@@ -14,16 +14,30 @@ import {
   SearchFacade,
   SearchService,
 } from '@geonetwork-ui/feature/search'
-import {
-  AggregationsOrderEnum,
-  AggregationsTypesEnum,
-  SearchFilters,
-} from '@geonetwork-ui/util/shared'
-import { BehaviorSubject } from 'rxjs'
+import { BehaviorSubject, of } from 'rxjs'
 import { SearchFiltersComponent } from './search-filters.component'
 import { TranslateModule } from '@ngx-translate/core'
 import { By } from '@angular/platform-browser'
 import { FormsModule } from '@angular/forms'
+import {
+  AggregationsTypes,
+  FieldFilters,
+} from '@geonetwork-ui/common/domain/search'
+
+jest.mock('@geonetwork-ui/util/app-config', () => ({
+  getOptionalSearchConfig: () => ({
+    ADVANCED_FILTERS: [
+      'publisher',
+      'format',
+      'isSpatial',
+      'documentStandard',
+      'inspireKeyword',
+      'license',
+      'topic',
+      'publicationYear',
+    ],
+  }),
+}))
 
 @Component({
   selector: 'gn-ui-check-toggle', // eslint-disable-line
@@ -51,10 +65,8 @@ export class MockCheckToggleComponent {
 export class MockFilterDropdownComponent {
   @Input() fieldName: string
   @Input() title: string
-  @Input() order: AggregationsOrderEnum = AggregationsOrderEnum.ASC
-  @Input() aggregationType: AggregationsTypesEnum = AggregationsTypesEnum.TERMS
 }
-const state = { OrgForResource: { mel: true } } as SearchFilters
+const state = { OrgForResource: { mel: true } } as FieldFilters
 class SearchFacadeMock {
   searchFilters$ = new BehaviorSubject(state)
   hasSpatialFilter$ = new BehaviorSubject(false)
@@ -66,9 +78,29 @@ class SearchServiceMock {
 }
 
 class FieldsServiceMock {
-  getFiltersForValues = jest.fn((fieldName, values) => ({
-    ['filter_' + fieldName]: {},
-  }))
+  buildFiltersFromFieldValues = jest.fn((fieldValues) =>
+    of(
+      Object.keys(fieldValues).reduce(
+        (prev, curr) => ({
+          ...prev,
+          ['filter_' + curr]: {},
+        }),
+        {}
+      )
+    )
+  )
+  public get supportedFields() {
+    return [
+      'publisher',
+      'format',
+      'isSpatial',
+      'documentStandard',
+      'inspireKeyword',
+      'license',
+      'topic',
+      'publicationYear',
+    ]
+  }
 }
 
 describe('SearchFiltersComponent', () => {
@@ -226,7 +258,7 @@ describe('SearchFiltersComponent', () => {
           getFilterButtons()[1].nativeElement.classList.contains('block')
         ).toBeTruthy()
       })
-      it('third filter dropdown does not show up (on desktop and mobile)', () => {
+      it('third filter dropdown shows up (on desktop and mobile)', () => {
         expect(
           getFilterButtons()[2].nativeElement.classList.contains('block')
         ).toBeTruthy()

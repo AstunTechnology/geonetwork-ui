@@ -5,7 +5,7 @@ import {
   Input,
   Output,
 } from '@angular/core'
-import { Organisation } from '@geonetwork-ui/util/shared'
+import { Organization } from '@geonetwork-ui/common/domain/record'
 
 @Component({
   selector: 'gn-ui-organisation-preview',
@@ -14,8 +14,9 @@ import { Organisation } from '@geonetwork-ui/util/shared'
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OrganisationPreviewComponent {
-  @Input() organisation: Organisation
-  @Output() clickedOrganisation = new EventEmitter<Organisation>()
+  @Input() organisation: Organization
+  @Input() organisationUrl: string
+  @Output() clickedOrganisation = new EventEmitter<Organization>()
 
   clickOrganisation(event: Event) {
     event.preventDefault()

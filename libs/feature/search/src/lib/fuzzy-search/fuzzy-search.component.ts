@@ -6,21 +6,16 @@ import {
   Output,
   ViewChild,
 } from '@angular/core'
-import { SearchApiService } from '@geonetwork-ui/data-access/gn4'
 import {
-  AutocompleteItem,
   AutocompleteComponent,
+  AutocompleteItem,
 } from '@geonetwork-ui/ui/inputs'
-import {
-  ElasticsearchService,
-  EsSearchResponse,
-  MetadataRecord,
-} from '@geonetwork-ui/util/shared'
 import { Observable } from 'rxjs'
 import { map } from 'rxjs/operators'
 import { SearchFacade } from '../state/search.facade'
-import { ElasticsearchMapper } from '../utils/mapper'
 import { SearchService } from '../utils/service/search.service'
+import { CatalogRecord } from '@geonetwork-ui/common/domain/record'
+import { RecordsRepositoryInterface } from '@geonetwork-ui/common/domain/records-repository.interface'
 
 @Component({
   selector: 'gn-ui-fuzzy-search',
@@ -30,33 +25,28 @@ import { SearchService } from '../utils/service/search.service'
 })
 export class FuzzySearchComponent implements OnInit {
   @ViewChild(AutocompleteComponent) autocomplete: AutocompleteComponent
-  @Output() itemSelected = new EventEmitter<MetadataRecord>()
-  @Output() inputSubmited = new EventEmitter<string>()
+  @Output() itemSelected = new EventEmitter<CatalogRecord>()
+  @Output() inputSubmitted = new EventEmitter<string>()
   searchInputValue$: Observable<{ title: string }>
 
-  displayWithFn: (MetadataRecord) => string = (record) => record?.title
+  displayWithFn: (record: CatalogRecord) => string = (record) => record?.title
 
-  autoCompleteAction = (query) =>
-    this.searchApiService
-      .search(
-        'bucket',
-        JSON.stringify(this.esService.buildAutocompletePayload(query))
-      )
-      .pipe(
-        map((response: EsSearchResponse) => this.esMapper.toRecords(response))
-      )
+  autoCompleteAction = (query: string) =>
+    this.recordsRepository
+      .fuzzySearch(query)
+      .pipe(map((result) => result.records))
 
   constructor(
     private searchFacade: SearchFacade,
-    private searchApiService: SearchApiService,
     private searchService: SearchService,
-    private esMapper: ElasticsearchMapper,
-    private esService: ElasticsearchService
+    private recordsRepository: RecordsRepositoryInterface
   ) {}
 
   ngOnInit(): void {
     this.searchInputValue$ = this.searchFacade.searchFilters$.pipe(
-      map((searchFilter) => ({ title: searchFilter.any }))
+      map((searchFilter) => ({
+        title: searchFilter.any as string,
+      }))
     )
   }
 
@@ -67,7 +57,7 @@ export class FuzzySearchComponent implements OnInit {
    * @param item
    */
   handleItemSelection(item: AutocompleteItem) {
-    const record = item as MetadataRecord
+    const record = item as CatalogRecord
     if (this.itemSelected.observers.length > 0) {
       this.itemSelected.emit(record)
     } else {
@@ -76,6 +66,10 @@ export class FuzzySearchComponent implements OnInit {
   }
 
   handleInputSubmission(any: string) {
-    this.searchService.updateFilters({ any })
+    if (this.inputSubmitted.observers.length > 0) {
+      this.inputSubmitted.emit(any)
+    } else {
+      this.searchService.updateFilters({ any })
+    }
   }
 }

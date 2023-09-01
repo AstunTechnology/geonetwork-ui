@@ -14,15 +14,20 @@ import TileWMS from 'ol/source/TileWMS'
 import VectorSource from 'ol/source/Vector'
 import { Options, optionsFromCapabilities } from 'ol/source/WMTS'
 import { DragPan, MouseWheelZoom, defaults, Interaction } from 'ol/interaction'
-import { mouseOnly, platformModifierKeyOnly } from 'ol/events/condition'
+import {
+  mouseOnly,
+  noModifierKeys,
+  platformModifierKeyOnly,
+  primaryAction,
+} from 'ol/events/condition'
 import WMTSCapabilities from 'ol/format/WMTSCapabilities'
 import { from, Observable, of } from 'rxjs'
 import { map } from 'rxjs/operators'
 import { MapContextLayerModel } from '../..'
 import { MapUtilsWMSService } from './map-utils-wms.service'
-import { MetadataLink } from '@geonetwork-ui/util/shared'
 import Collection from 'ol/Collection'
 import MapBrowserEvent from 'ol/MapBrowserEvent'
+import { DatasetDistribution } from '@geonetwork-ui/common/domain/record'
 
 const FEATURE_PROJECTION = 'EPSG:3857'
 const DATA_PROJECTION = 'EPSG:4326'
@@ -158,7 +163,9 @@ export class MapUtilsService {
     )
   }
 
-  getWmtsOptionsFromCapabilities(link: MetadataLink): Observable<Options> {
+  getWmtsOptionsFromCapabilities(
+    link: DatasetDistribution
+  ): Observable<Options> {
     const getCapabilitiesUrl = new URL(link.url, window.location.toString())
     getCapabilitiesUrl.searchParams.set('SERVICE', 'WMTS')
     getCapabilitiesUrl.searchParams.set('REQUEST', 'GetCapabilities')
@@ -220,7 +227,8 @@ export function dragPanCondition(
   if (!dragPanCondition) {
     this.getMap().dispatchEvent('mapmuted')
   }
-  return dragPanCondition
+  // combine the condition with the default DragPan conditions
+  return dragPanCondition && noModifierKeys(event) && primaryAction(event)
 }
 
 export function mouseWheelZoomCondition(

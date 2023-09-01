@@ -23,6 +23,8 @@ import { UiInputsModule } from '@geonetwork-ui/ui/inputs'
 import { FormsModule } from '@angular/forms'
 import { AvatarComponent } from './avatar/avatar.component'
 import { UserPreviewComponent } from './user-preview/user-preview.component'
+import { GnUiLinkifyDirective } from './metadata-info/linkify.directive'
+import { PaginationButtonsComponent } from './pagination-buttons/pagination-buttons.component'
 
 @NgModule({
   imports: [
@@ -53,6 +55,8 @@ import { UserPreviewComponent } from './user-preview/user-preview.component'
     ThumbnailComponent,
     AvatarComponent,
     UserPreviewComponent,
+    GnUiLinkifyDirective,
+    PaginationButtonsComponent,
   ],
   exports: [
     MetadataInfoComponent,
@@ -69,6 +73,7 @@ import { UserPreviewComponent } from './user-preview/user-preview.component'
     ThumbnailComponent,
     AvatarComponent,
     UserPreviewComponent,
+    PaginationButtonsComponent,
   ],
 })
 export class UiElementsModule {}

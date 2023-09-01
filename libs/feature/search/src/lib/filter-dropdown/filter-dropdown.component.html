@@ -4,6 +4,8 @@
   [maxRows]="6"
   [choices]="choices$ | async"
   [selected]="selected$ | async"
+  [allowSearch]="true"
   (selectValues)="onSelectedValues($event)"
+  [attr.data-cy-field]="fieldName"
 >
 </gn-ui-dropdown-multiselect>

@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core'
-import { MetadataLink } from '@geonetwork-ui/util/shared'
 import { BehaviorSubject, Observable, of } from 'rxjs'
 import {
   catchError,
@@ -9,9 +8,11 @@ import {
   startWith,
   switchMap,
 } from 'rxjs/operators'
-import { DataItem } from '@geonetwork-ui/data-fetcher'
+import { DataItem, FetchError } from '@geonetwork-ui/data-fetcher'
 import { DataService } from '../service/data.service'
 import { TableItemModel } from '@geonetwork-ui/ui/dataviz'
+import { DatasetDistribution } from '@geonetwork-ui/common/domain/record'
+import { TranslateService } from '@ngx-translate/core'
 
 @Component({
   selector: 'gn-ui-table-view',
@@ -20,10 +21,10 @@ import { TableItemModel } from '@geonetwork-ui/ui/dataviz'
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TableViewComponent {
-  @Input() set link(value: MetadataLink) {
+  @Input() set link(value: DatasetDistribution) {
     this.currentLink$.next(value)
   }
-  private currentLink$ = new BehaviorSubject<MetadataLink>(null)
+  private currentLink$ = new BehaviorSubject<DatasetDistribution>(null)
 
   loading = false
   error = null
@@ -41,8 +42,7 @@ export class TableViewComponent {
           }))
         ),
         catchError((error) => {
-          this.error = error.message
-          console.warn(error.stack || error.message)
+          this.handleError(error)
           return of([] as TableItemModel[])
         }),
         finalize(() => {
@@ -54,9 +54,12 @@ export class TableViewComponent {
     shareReplay(1)
   )
 
-  constructor(private dataService: DataService) {}
+  constructor(
+    private dataService: DataService,
+    private translateService: TranslateService
+  ) {}
 
-  fetchData(link: MetadataLink): Observable<DataItem[]> {
+  fetchData(link: DatasetDistribution): Observable<DataItem[]> {
     return this.dataService
       .getDataset(link)
       .pipe(switchMap((dataset) => dataset.read()))
@@ -64,5 +67,24 @@ export class TableViewComponent {
 
   onTableSelect(event) {
     console.log(event)
+  }
+
+  handleError(error: FetchError | Error | string) {
+    if (error instanceof FetchError) {
+      this.error = this.translateService.instant(
+        `dataset.error.${error.type}`,
+        {
+          info: error.info,
+        }
+      )
+      console.warn(error.message)
+    } else if (error instanceof Error) {
+      this.error = this.translateService.instant(error.message)
+      console.warn(error.stack || error)
+    } else {
+      this.error = this.translateService.instant(error)
+      console.warn(error)
+    }
+    this.loading = false
   }
 }

@@ -7,15 +7,16 @@ import {
   SetFilters,
   SetSortBy,
 } from '@geonetwork-ui/feature/search'
-import { SortByEnum } from '@geonetwork-ui/util/shared'
+import { SortByEnum } from '@geonetwork-ui/common/domain/search'
 import { Actions, createEffect, ofType } from '@ngrx/effects'
-import { navigation } from '@nrwl/angular'
+import { navigation } from '@ngrx/router-store/data-persistence'
 import { of } from 'rxjs'
-import { mergeMap, tap } from 'rxjs/operators'
+import { map, mergeMap, tap } from 'rxjs/operators'
 import { ROUTER_CONFIG, RouterConfigModel } from '../router.module'
 import * as RouterActions from './router.actions'
 import { RouterFacade } from './router.facade'
 import { ROUTE_PARAMS } from '../constants'
+import { sortByFromString } from '@geonetwork-ui/util/shared'
 
 @Injectable()
 export class RouterEffects {
@@ -45,26 +46,18 @@ export class RouterEffects {
   syncSearchState$ = createEffect(() =>
     this.facade.searchParams$.pipe(
       mergeMap((searchParams) => {
-        const routeFilters = this.fieldsService.supportedFields.reduce(
-          (prev, curr) => {
-            let values = null
-            if (Array.isArray(searchParams[curr])) values = searchParams[curr]
-            else if (typeof searchParams[curr] === 'string')
-              values = [searchParams[curr]]
-            if (!values) return prev
-            return {
-              ...prev,
-              ...this.fieldsService.getFiltersForValues(curr, values),
-            }
-          },
-          {}
-        )
+        return this.fieldsService
+          .buildFiltersFromFieldValues(searchParams)
+          .pipe(map((filters) => [searchParams, filters]))
+      }),
+      mergeMap(([searchParams, filters]) => {
+        let sortBy = SortByEnum.RELEVANCY
+        if (ROUTE_PARAMS.SORT in searchParams) {
+          sortBy = sortByFromString(searchParams[ROUTE_PARAMS.SORT])
+        }
         return of(
-          new SetFilters(routeFilters, this.routerConfig.searchStateId),
-          new SetSortBy(
-            searchParams[ROUTE_PARAMS.SORT] || SortByEnum.RELEVANCY,
-            this.routerConfig.searchStateId
-          )
+          new SetFilters(filters, this.routerConfig.searchStateId),
+          new SetSortBy(sortBy, this.routerConfig.searchStateId)
         )
       })
     )
@@ -81,10 +74,8 @@ export class RouterEffects {
           return of(
             MdViewActions.setIncompleteMetadata({
               incomplete: {
-                uuid: activatedRouteSnapshot.params.metadataUuid,
-                id: '',
+                uniqueIdentifier: activatedRouteSnapshot.params.metadataUuid,
                 title: '',
-                metadataUrl: '',
               },
             }),
             MdViewActions.loadFullMetadata({

@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import fetchMock from 'fetch-mock-jest'
 import fs from 'fs'
 import path from 'path'
@@ -47,6 +50,10 @@ describe('data-fetcher', () => {
             contentType =
               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             break
+          case '.xml':
+            body = fs.readFileSync(filePath, null) // as arraybuffer
+            contentType = 'text/xml; subtype="gml/3.2.1";charset=UTF-8'
+            break
         }
         return {
           body,
@@ -83,8 +90,9 @@ describe('data-fetcher', () => {
         return expect(
           readDataset('http://bla/abcd.json')
         ).rejects.toMatchObject({
-          message: expect.stringContaining('random network problem'),
-          isCrossOriginOrNetworkRelated: true,
+          info: expect.stringContaining('random network problem'),
+          type: 'network',
+          httpStatus: 0,
         })
       })
     })
@@ -99,7 +107,6 @@ describe('data-fetcher', () => {
         return expect(
           readDataset('http://bla/abcd.json')
         ).rejects.toMatchObject({
-          message: expect.stringContaining('HTTP error'),
           httpStatus: 403,
         })
       })
@@ -119,8 +126,9 @@ describe('data-fetcher', () => {
       })
       it('throws a relevant error', () => {
         return expect(readDataset('http://bla/abcd')).rejects.toMatchObject({
-          message: expect.stringContaining('content type is unsupported'),
-          contentTypeError: true,
+          httpStatus: 0,
+          info: 'application/unsupported',
+          type: 'unsupportedType',
         })
       })
     })
@@ -136,10 +144,7 @@ describe('data-fetcher', () => {
       it('throws a relevant error', () => {
         return expect(readDataset('http://bla/abcd.gif')).rejects.toMatchObject(
           {
-            message: expect.stringContaining(
-              'content type could not be inferred'
-            ),
-            contentTypeError: true,
+            type: expect.stringContaining('unknown'),
           }
         )
       })
@@ -336,6 +341,67 @@ describe('data-fetcher', () => {
         })
       })
     })
+    describe('Gml file', () => {
+      it('returns the objects in the file', async () => {
+        const gml = await readDataset(
+          'http://localfile/fixtures/wfs-gml.xml',
+          'gml',
+          { namespace: 'ms:n_mat_eolien_p_r32', wfsVersion: '2.0.0' }
+        )
+        expect(gml[0]).toEqual({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [1.548145, 50.054755, 0],
+          },
+          properties: {
+            boundedBy: [1.548145, 50.054755, 1.548145, 50.054755],
+            id_map: 1862,
+            id_mat: 1862,
+            nom_parc: 'PARC EOLIEN DE CHASSE MAREE II',
+            id_eolienn: 'L1.1',
+            x_rgf93: 595929,
+            y_rgf93: 6996108,
+            puissanc_2: 2,
+            code_com: 80360,
+            nom_commun: 'FRESSENNEVILLE',
+            code_arron: 801,
+            departemen: 'SO',
+            secteur: 'E - SECTEUR OUEST SOMME',
+            id_sre: 'E-P',
+            ht_max: 127,
+            ht_mat: 0,
+            type_proce: 'PC',
+            etat_proce: 'AB',
+            contentieu: 0,
+            etat_mat: 'NCO',
+            en_service: 'NON',
+            etat_eolie: 'AB',
+            alt_base: null,
+            code_icpe: undefined,
+            date_crea: undefined,
+            date_decis: null,
+            date_depot: undefined,
+            date_maj: null,
+            date_prod: undefined,
+            date_real: undefined,
+            diam_rotor: null,
+            exploitant: undefined,
+            gardesol: null,
+            ht_nacelle: null,
+            id_parc: undefined,
+            id_pc: undefined,
+            n_parcel: undefined,
+            operateur: undefined,
+            precis_pos: undefined,
+            srce_geom: undefined,
+            sys_coord: undefined,
+            x_pc: null,
+            y_pc: null,
+          },
+        })
+      })
+    })
     describe('specifying a type hint', () => {
       it('ignores the advertised content type and follows the type hint instead', async () => {
         try {
@@ -362,10 +428,7 @@ describe('data-fetcher', () => {
         expect(
           readDataset('http://localfile/fixtures/unrecognized.txt?noheader')
         ).rejects.toMatchObject({
-          message: expect.stringContaining(
-            'content type could not be inferred'
-          ),
-          contentTypeError: true,
+          type: expect.stringContaining('unknown'),
         })
       })
     })

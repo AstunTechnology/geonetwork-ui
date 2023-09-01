@@ -9,13 +9,13 @@ import {
   ViewChild,
 } from '@angular/core'
 import { FavoritesService } from '../favorites.service'
-import { MetadataRecord } from '@geonetwork-ui/util/shared'
-import { map } from 'rxjs/operators'
+import { map, pairwise } from 'rxjs/operators'
 import { AuthService } from '@geonetwork-ui/feature/auth'
 import tippy from 'tippy.js'
 import { TranslateService } from '@ngx-translate/core'
 import { StarToggleComponent } from '@geonetwork-ui/ui/inputs'
 import { Subscription } from 'rxjs'
+import { CatalogRecord } from '@geonetwork-ui/common/domain/record'
 
 @Component({
   selector: 'gn-ui-favorite-star',
@@ -27,16 +27,18 @@ export class FavoriteStarComponent implements AfterViewInit, OnDestroy {
   @Input() set record(value) {
     this.record_ = value
     this.favoriteCount =
-      'favoriteCount' in this.record_ ? this.record_.favoriteCount : null
+      'extras' in this.record_ && 'favoriteCount' in this.record_.extras
+        ? (this.record_.extras.favoriteCount as number)
+        : null
   }
   get record() {
     return this.record_
   }
   isFavorite$ = this.favoritesService.myFavoritesUuid$.pipe(
-    map((favorites) => favorites.indexOf(this.record.uuid) > -1)
+    map((favorites) => favorites.indexOf(this.record.uniqueIdentifier) > -1)
   )
   isAnonymous$ = this.authService.isAnonymous$
-  record_: MetadataRecord
+  record_: CatalogRecord
   favoriteCount: number | null
   loading = false
   loginUrl = this.authService.loginUrl
@@ -49,6 +51,7 @@ export class FavoriteStarComponent implements AfterViewInit, OnDestroy {
   @ViewChild(StarToggleComponent, { read: ElementRef })
   starToggleRef: ElementRef
   subscription: Subscription
+  countSubscription: Subscription
 
   get hasFavoriteCount() {
     return this.favoriteCount !== null
@@ -74,22 +77,41 @@ export class FavoriteStarComponent implements AfterViewInit, OnDestroy {
         })
       }
     })
+    this.countSubscription = this.favoritesService.myFavoritesUuid$
+      .pipe(pairwise())
+      .subscribe(([oldFavs, newFavs]) => {
+        const editedFavs = (
+          oldFavs.length < newFavs.length
+            ? newFavs.slice(-1)
+            : oldFavs.filter((fav) => !newFavs.includes(fav))
+        )[0]
+        if (
+          this.hasFavoriteCount &&
+          editedFavs === this.record.uniqueIdentifier
+        ) {
+          if (newFavs.includes(editedFavs)) {
+            this.favoriteCount += 1
+          } else {
+            this.favoriteCount += -1
+          }
+        }
+      })
   }
 
   ngOnDestroy(): void {
     this.subscription.unsubscribe()
+    this.countSubscription.unsubscribe()
   }
 
   toggleFavorite(isFavorite) {
     this.loading = true
     ;(isFavorite
-      ? this.favoritesService.addToFavorites([this.record.uuid])
-      : this.favoritesService.removeFromFavorites([this.record.uuid])
+      ? this.favoritesService.addToFavorites([this.record.uniqueIdentifier])
+      : this.favoritesService.removeFromFavorites([
+          this.record.uniqueIdentifier,
+        ])
     ).subscribe({
       complete: () => {
-        if (this.hasFavoriteCount) {
-          this.favoriteCount += isFavorite ? 1 : -1
-        }
         this.loading = false
         this.changeDetector.detectChanges()
       },

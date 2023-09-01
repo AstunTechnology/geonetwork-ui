@@ -4,9 +4,9 @@ import {
   Inject,
   Input,
   OnInit,
+  Optional,
   Output,
 } from '@angular/core'
-import { MetadataRecord } from '@geonetwork-ui/util/shared'
 import { Observable } from 'rxjs'
 import { filter, map } from 'rxjs/operators'
 import { SearchFacade } from '../state/search.facade'
@@ -17,6 +17,8 @@ import {
   ResultsLayoutConfigItem,
   ResultsLayoutConfigModel,
 } from '@geonetwork-ui/ui/search'
+import { RECORD_URL_TOKEN } from '../feature-search.module'
+import { CatalogRecord } from '@geonetwork-ui/common/domain/record'
 
 export type ResultsListShowMoreStrategy = 'auto' | 'button' | 'none'
 
@@ -28,7 +30,7 @@ export type ResultsListShowMoreStrategy = 'auto' | 'button' | 'none'
 export class ResultsListContainerComponent implements OnInit {
   @Input() layout: string
   @Input() showMore: ResultsListShowMoreStrategy = 'auto'
-  @Output() mdSelect = new EventEmitter<MetadataRecord>()
+  @Output() mdSelect = new EventEmitter<CatalogRecord>()
 
   layoutConfig$: Observable<ResultsLayoutConfigItem>
 
@@ -37,11 +39,15 @@ export class ResultsListContainerComponent implements OnInit {
   errorMessage$: Observable<string>
 
   errorTypes = ErrorType
+  recordUrlGetter = this.getRecordUrl.bind(this)
 
   constructor(
     public facade: SearchFacade,
     @Inject(RESULTS_LAYOUT_CONFIG)
-    private resultsLayoutConfig: ResultsLayoutConfigModel
+    private resultsLayoutConfig: ResultsLayoutConfigModel,
+    @Optional()
+    @Inject(RECORD_URL_TOKEN)
+    private recordUrlTemplate: string
   ) {}
 
   ngOnInit(): void {
@@ -64,11 +70,16 @@ export class ResultsListContainerComponent implements OnInit {
     )
   }
 
-  onMetadataSelection(metadata: MetadataRecord): void {
+  onMetadataSelection(metadata: CatalogRecord): void {
     this.mdSelect.emit(metadata)
   }
 
   onShowMore() {
     this.facade.scroll()
+  }
+
+  getRecordUrl(metadata: CatalogRecord) {
+    if (!this.recordUrlTemplate) return null
+    return this.recordUrlTemplate.replace('${uuid}', metadata.uniqueIdentifier)
   }
 }

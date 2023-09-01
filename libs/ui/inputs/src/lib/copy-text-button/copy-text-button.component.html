@@ -1,15 +1,21 @@
 <div class="flex">
   <input
-    *ngIf="displayText"
+    *ngIf="displayText && rows <= 1"
     type="text"
-    class="grow py-2 px-4 bg-gray-200 opacity-50 rounded-l-md border border-gray-300"
+    class="grow py-2 px-4 bg-gray-200 opacity-50 rounded-l-md border border-gray-300 truncate"
     value="{{ text }}"
     readonly
   />
+  <textarea
+    *ngIf="displayText && rows > 1"
+    [rows]="rows"
+    class="grow py-2 px-4 bg-gray-200 opacity-50 rounded-l-md border border-gray-300 overflow-y-auto h-max"
+    readonly
+    >{{ text }}</textarea
+  >
   <button
     type="button"
     (click)="copyText($event)"
-    class="cursor-pointer"
     [ngClass]="{
       'py-2 px-4 rounded-r-md bg-gray-400 hover:bg-gray-600 focus:bg-gray-800 text-white':
         displayText
@@ -18,8 +24,7 @@
     [matTooltip]="tooltipText"
     matTooltipPosition="above"
   >
-    <mat-icon
-      class="pointer-events-none align-middle group-hover:text-secondary text-gray-200 transition-colors"
+    <mat-icon class="pointer-events-none align-middle card-icon"
       >content_copy</mat-icon
     >
   </button>

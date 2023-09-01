@@ -8,13 +8,11 @@ import {
 import { marker } from '@biesbjerg/ngx-translate-extract-marker'
 import {
   BaseReader,
+  FetchError,
   FieldAggregation,
   getJsonDataItemsProxy,
 } from '@geonetwork-ui/data-fetcher'
 import { DDChoices } from '@geonetwork-ui/ui/inputs'
-import { MetadataLink } from '@geonetwork-ui/util/shared'
-import { AggregationTypes } from '@geonetwork-ui/util/types/data/data-api.model'
-import { InputChartType } from '@geonetwork-ui/util/types/data/dataviz-configuration.model'
 import { BehaviorSubject, combineLatest, EMPTY, Observable } from 'rxjs'
 import {
   catchError,
@@ -26,6 +24,12 @@ import {
   tap,
 } from 'rxjs/operators'
 import { DataService } from '../service/data.service'
+import {
+  AggregationTypes,
+  InputChartType,
+} from '@geonetwork-ui/common/domain/dataviz-configuration.model'
+import { DatasetDistribution } from '@geonetwork-ui/common/domain/record'
+import { TranslateService } from '@ngx-translate/core'
 
 marker('chart.type.bar')
 marker('chart.type.barHorizontal')
@@ -46,10 +50,10 @@ marker('chart.aggregation.count')
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChartViewComponent {
-  @Input() set link(value: MetadataLink) {
+  @Input() set link(value: DatasetDistribution) {
     this.currentLink$.next(value)
   }
-  private currentLink$ = new BehaviorSubject<MetadataLink>(null)
+  private currentLink$ = new BehaviorSubject<DatasetDistribution>(null)
 
   @Input() set aggregation(value: FieldAggregation[0]) {
     this.aggregation$.next(value)
@@ -87,8 +91,9 @@ export class ChartViewComponent {
 
   loading = false
   error = null
+  errorInfo = null
 
-  typeChoices: DDChoices<InputChartType> = [
+  typeChoices: DDChoices = [
     { label: 'chart.type.bar', value: 'bar' },
     { label: 'chart.type.barHorizontal', value: 'bar-horizontal' },
     { label: 'chart.type.line', value: 'line' },
@@ -106,7 +111,7 @@ export class ChartViewComponent {
       { label: 'chart.aggregation.min', value: 'min' },
       { label: 'chart.aggregation.average', value: 'average' },
       { label: 'chart.aggregation.count', value: 'count' },
-    ] as DDChoices<AggregationTypes>
+    ] as DDChoices
   }
 
   dataset$: Observable<BaseReader> = this.currentLink$.pipe(
@@ -204,13 +209,27 @@ export class ChartViewComponent {
 
   constructor(
     private dataService: DataService,
-    private changeDetector: ChangeDetectorRef
+    private changeDetector: ChangeDetectorRef,
+    private translateService: TranslateService
   ) {}
 
-  handleError(error) {
-    this.error = error.message
+  handleError(error: FetchError | Error | string) {
+    if (error instanceof FetchError) {
+      this.error = this.translateService.instant(
+        `dataset.error.${error.type}`,
+        {
+          info: error.info,
+        }
+      )
+      console.warn(error.message)
+    } else if (error instanceof Error) {
+      this.error = this.translateService.instant(error.message)
+      console.warn(error.stack || error)
+    } else {
+      this.error = this.translateService.instant(error)
+      console.warn(error)
+    }
     this.loading = false
     this.changeDetector.detectChanges()
-    console.warn(error.stack || error.message)
   }
 }

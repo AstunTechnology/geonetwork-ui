@@ -10,10 +10,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing'
 import { By } from '@angular/platform-browser'
 import { Router } from '@angular/router'
 import { SearchFacade, SearchService } from '@geonetwork-ui/feature/search'
-import { MetadataRecord } from '@geonetwork-ui/util/shared'
 import { BehaviorSubject } from 'rxjs'
 import { DashboardPageComponent } from './dashboard-page.component'
 import { DashboardSearchService } from './dashboard-search.service'
+import { CatalogRecord } from '@geonetwork-ui/common/domain/record'
 
 const results = [{ md: true }]
 const currentPage = 5
@@ -25,17 +25,17 @@ const totalPages = 25
   template: '',
 })
 export class RecordTableComponent {
-  @Input() records: MetadataRecord[]
-  @Output() recordSelect = new EventEmitter<MetadataRecord>()
+  @Input() records: CatalogRecord[]
+  @Output() recordSelect = new EventEmitter<CatalogRecord>()
 }
 @Component({
   // eslint-disable-next-line
-  selector: 'gn-ui-pagination',
+  selector: 'gn-ui-pagination-buttons',
   template: '',
 })
-export class PaginationComponent {
+export class PaginationButtonsComponent {
   @Input() currentPage = 1
-  @Input() nPages = 1
+  @Input() totalPages = 1
   @Input() hideButton = false
   @Output() newCurrentPageEvent = new EventEmitter<number>()
 }
@@ -56,7 +56,6 @@ class RouterMock {
 describe('DashboardPageComponent', () => {
   let component: DashboardPageComponent
   let fixture: ComponentFixture<DashboardPageComponent>
-  let searchFacade: SearchFacade
   let dashboardSearchService: DashboardSearchService
   let router: Router
 
@@ -65,7 +64,7 @@ describe('DashboardPageComponent', () => {
       schemas: [NO_ERRORS_SCHEMA],
       declarations: [
         DashboardPageComponent,
-        PaginationComponent,
+        PaginationButtonsComponent,
         RecordTableComponent,
       ],
       providers: [
@@ -97,7 +96,6 @@ describe('DashboardPageComponent', () => {
       })
       .compileComponents()
 
-    searchFacade = TestBed.inject(SearchFacade)
     dashboardSearchService = TestBed.inject(DashboardSearchService)
     router = TestBed.inject(Router)
     fixture = TestBed.createComponent(DashboardPageComponent)
@@ -119,7 +117,7 @@ describe('DashboardPageComponent', () => {
         By.directive(RecordTableComponent)
       ).componentInstance
       pagination = fixture.debugElement.query(
-        By.directive(PaginationComponent)
+        By.directive(PaginationButtonsComponent)
       ).componentInstance
     })
     it('displays record table', () => {
@@ -128,11 +126,11 @@ describe('DashboardPageComponent', () => {
     it('displays pagination', () => {
       expect(pagination).toBeTruthy()
       expect(pagination.currentPage).toEqual(currentPage)
-      expect(pagination.nPages).toEqual(totalPages)
+      expect(pagination.totalPages).toEqual(totalPages)
     })
     describe('when click on a record', () => {
       beforeEach(() => {
-        table.recordSelect.emit({ uuid: 123 })
+        table.recordSelect.emit({ uniqueIdentifier: 123 })
       })
       it('routes to record edition', () => {
         expect(router.navigate).toHaveBeenCalledWith(['/edit', 123])

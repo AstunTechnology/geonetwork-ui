@@ -12,15 +12,23 @@ import {
   SearchResultsErrorComponent,
   UiElementsModule,
 } from '@geonetwork-ui/ui/elements'
-import { RECORDS_FULL_FIXTURE } from '@geonetwork-ui/util/shared/fixtures'
 import { TranslateModule } from '@ngx-translate/core'
 import { BehaviorSubject, of } from 'rxjs'
 import { MdViewFacade } from '../state/mdview.facade'
 import { RecordMetadataComponent } from './record-metadata.component'
+import { OrganizationsServiceInterface } from '@geonetwork-ui/common/domain/organizations.service.interface'
+import { DATASET_RECORDS } from '@geonetwork-ui/common/fixtures'
+
+const SAMPLE_RECORD = {
+  ...DATASET_RECORDS[0],
+  extras: {
+    catalogUuid: 'catalog-0001',
+  },
+}
 
 class MdViewFacadeMock {
   isPresent$ = new BehaviorSubject(false)
-  metadata$ = new BehaviorSubject(RECORDS_FULL_FIXTURE[0])
+  metadata$ = new BehaviorSubject(SAMPLE_RECORD)
   mapApiLinks$ = new BehaviorSubject([])
   dataLinks$ = new BehaviorSubject([])
   geoDataLinks$ = new BehaviorSubject([])
@@ -31,12 +39,20 @@ class MdViewFacadeMock {
   error$ = new BehaviorSubject(null)
 }
 
-const searchServiceMock = {
-  setFilters: jest.fn(),
-  updateFilters: jest.fn(),
+class SearchServiceMock {
+  setFilters = jest.fn()
+  updateFilters = jest.fn()
 }
-const sourcesServiceMock = {
-  getSourceLabel: jest.fn(() => of('catalog label')),
+class SourcesServiceMock {
+  getSourceLabel = jest.fn(() => of('catalog label'))
+}
+
+class OrganisationsServiceMock {
+  getFiltersForOrgs = jest.fn((orgs) =>
+    of({
+      orgs: orgs.reduce((prev, curr) => ({ ...prev, [curr.name]: true }), {}),
+    })
+  )
 }
 
 @Component({
@@ -52,10 +68,10 @@ export class MockDataMapComponent {}
 export class MockDataViewComponent {}
 
 @Component({
-  selector: 'gn-ui-data-view-permalink',
+  selector: 'gn-ui-data-view-share',
   template: '<div></div>',
 })
-export class MockDataViewPermalinkComponent {}
+export class MockDataViewShareComponent {}
 
 @Component({
   selector: 'gn-ui-data-downloads',
@@ -85,6 +101,8 @@ describe('RecordMetadataComponent', () => {
   let component: RecordMetadataComponent
   let fixture: ComponentFixture<RecordMetadataComponent>
   let facade
+  let searchService: SearchService
+  let sourcesService: SourcesService
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -92,7 +110,7 @@ describe('RecordMetadataComponent', () => {
         RecordMetadataComponent,
         MockDataMapComponent,
         MockDataViewComponent,
-        MockDataViewPermalinkComponent,
+        MockDataViewShareComponent,
         MockDataDownloadsComponent,
         MockDataOtherlinksComponent,
         MockDataApisComponent,
@@ -112,15 +130,21 @@ describe('RecordMetadataComponent', () => {
         },
         {
           provide: SearchService,
-          useValue: searchServiceMock,
+          useClass: SearchServiceMock,
         },
         {
           provide: SourcesService,
-          useValue: sourcesServiceMock,
+          useClass: SourcesServiceMock,
+        },
+        {
+          provide: OrganizationsServiceInterface,
+          useClass: OrganisationsServiceMock,
         },
       ],
     }).compileComponents()
     facade = TestBed.inject(MdViewFacade)
+    searchService = TestBed.inject(SearchService)
+    sourcesService = TestBed.inject(SourcesService)
   })
 
   beforeEach(() => {
@@ -156,11 +180,11 @@ describe('RecordMetadataComponent', () => {
         expect(metadataInfo.metadata).toHaveProperty('abstract')
       })
       it('shows the metadata contact', () => {
-        expect(metadataContact.metadata).toHaveProperty('contact')
+        expect(metadataContact.metadata).toHaveProperty('contacts')
       })
       it('shows the metadata catalog', () => {
-        expect(sourcesServiceMock.getSourceLabel).toBeCalledWith(
-          RECORDS_FULL_FIXTURE[0].catalogUuid
+        expect(sourcesService.getSourceLabel).toBeCalledWith(
+          SAMPLE_RECORD.extras.catalogUuid
         )
         expect(catalogComponent.sourceLabel).toEqual('catalog label')
       })
@@ -283,9 +307,7 @@ describe('RecordMetadataComponent', () => {
       })
       it('does not render the permalink component', () => {
         expect(
-          fixture.debugElement.query(
-            By.directive(MockDataViewPermalinkComponent)
-          )
+          fixture.debugElement.query(By.directive(MockDataViewShareComponent))
         ).toBeFalsy()
       })
     })
@@ -310,9 +332,7 @@ describe('RecordMetadataComponent', () => {
       })
       it('does not render the permalink component', () => {
         expect(
-          fixture.debugElement.query(
-            By.directive(MockDataViewPermalinkComponent)
-          )
+          fixture.debugElement.query(By.directive(MockDataViewShareComponent))
         ).toBeFalsy()
       })
       describe('when selectedTabIndex$ is 2 (chart tab)', () => {
@@ -322,9 +342,7 @@ describe('RecordMetadataComponent', () => {
         })
         it('renders the permalink component', () => {
           expect(
-            fixture.debugElement.query(
-              By.directive(MockDataViewPermalinkComponent)
-            )
+            fixture.debugElement.query(By.directive(MockDataViewShareComponent))
           ).toBeTruthy()
         })
       })
@@ -460,17 +478,22 @@ describe('RecordMetadataComponent', () => {
   describe('#onInfoKeywordClick', () => {
     it('call searchService for any', () => {
       component.onInfoKeywordClick('any')
-      expect(searchServiceMock.updateFilters).toHaveBeenCalledWith({
+      expect(searchService.updateFilters).toHaveBeenCalledWith({
         any: 'any',
       })
     })
   })
   describe('#onContactClick', () => {
     it('call update search for OrgForResource', () => {
-      component.onContactClick('orgname')
-      expect(searchServiceMock.updateFilters).toHaveBeenCalledWith({
-        OrgForResource: {
-          orgname: true,
+      component.onOrganizationClick({
+        name: 'MyOrganization',
+        website: new URL('https://www.my.org/info'),
+        logoUrl: new URL('https://www.my.org/logo.png'),
+        description: 'A generic organization',
+      })
+      expect(searchService.updateFilters).toHaveBeenCalledWith({
+        orgs: {
+          MyOrganization: true,
         },
       })
     })
@@ -499,7 +522,7 @@ describe('RecordMetadataComponent', () => {
         expect(result.componentInstance.type).toBe(ErrorType.RECORD_NOT_FOUND)
         expect(result.componentInstance.error).toBe(undefined)
         expect(result.componentInstance.recordId).toBe(
-          RECORDS_FULL_FIXTURE[0].uuid
+          SAMPLE_RECORD.uniqueIdentifier
         )
       })
     })

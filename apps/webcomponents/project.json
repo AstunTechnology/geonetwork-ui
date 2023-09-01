@@ -14,15 +14,7 @@
         "main": "apps/webcomponents/src/main.ts",
         "polyfills": "apps/webcomponents/src/polyfills.ts",
         "tsConfig": "apps/webcomponents/tsconfig.app.json",
-        "assets": [
-          "apps/webcomponents/src/favicon.ico",
-          "apps/webcomponents/src/assets",
-          {
-            "glob": "*",
-            "input": "translations",
-            "output": "assets/i18n/"
-          }
-        ],
+        "assets": [],
         "styles": [],
         "scripts": [],
         "allowedCommonJsDependencies": [
@@ -87,7 +79,7 @@
       }
     },
     "lint": {
-      "executor": "@nrwl/linter:eslint",
+      "executor": "@nx/linter:eslint",
       "options": {
         "lintFilePatterns": [
           "apps/webcomponents/src/**/*.ts",
@@ -97,7 +89,7 @@
       "outputs": ["{options.outputFile}"]
     },
     "test": {
-      "executor": "@nrwl/jest:jest",
+      "executor": "@nx/jest:jest",
       "outputs": ["{workspaceRoot}/coverage/apps/webcomponents"],
       "options": {
         "jestConfig": "apps/webcomponents/jest.config.ts",

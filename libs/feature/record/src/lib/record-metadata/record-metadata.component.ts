@@ -5,7 +5,8 @@ import { ErrorType } from '@geonetwork-ui/ui/elements'
 import { BehaviorSubject, combineLatest } from 'rxjs'
 import { filter, map, mergeMap, pluck } from 'rxjs/operators'
 import { MdViewFacade } from '../state/mdview.facade'
-import { DatavizConfigurationModel } from '@geonetwork-ui/util/types/data/dataviz-configuration.model'
+import { OrganizationsServiceInterface } from '@geonetwork-ui/common/domain/organizations.service.interface'
+import { Individual, Organization } from '@geonetwork-ui/common/domain/record'
 
 @Component({
   selector: 'gn-ui-record-metadata',
@@ -44,7 +45,7 @@ export class RecordMetadataComponent {
   )
 
   sourceLabel$ = this.facade.metadata$.pipe(
-    pluck('catalogUuid'),
+    map((record) => record?.extras?.catalogUuid as string),
     filter((uuid) => !!uuid),
     mergeMap((uuid) => this.sourceService.getSourceLabel(uuid))
   )
@@ -55,7 +56,8 @@ export class RecordMetadataComponent {
   constructor(
     public facade: MdViewFacade,
     private searchService: SearchService,
-    private sourceService: SourcesService
+    private sourceService: SourcesService,
+    private orgsService: OrganizationsServiceInterface
   ) {}
 
   onTabIndexChange(index: number): void {
@@ -68,9 +70,9 @@ export class RecordMetadataComponent {
   onInfoKeywordClick(keyword: string) {
     this.searchService.updateFilters({ any: keyword })
   }
-  onContactClick(contactOrgName: string) {
-    this.searchService.updateFilters({
-      OrgForResource: { [contactOrgName]: true },
-    })
+  onOrganizationClick(org: Organization) {
+    this.orgsService
+      .getFiltersForOrgs([org])
+      .subscribe((filters) => this.searchService.updateFilters(filters))
   }
 }
